@@ -1,0 +1,19 @@
+name: sbee
+description: Science-Based Exercise Engine (SBEE) core library.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  rxdart: ^0.27.7
+  drift: ^2.20.0
+  directed_graph: ^0.4.1
+  statemachine: ^3.0.0
+
+dev_dependencies:
+  build_runner: ^2.4.9
+  drift_dev: ^2.20.0
+  test: ^1.25.2
+  glados: ^1.1.7
