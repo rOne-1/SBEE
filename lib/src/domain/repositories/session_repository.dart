@@ -18,3 +18,14 @@ abstract class SessionRepository {
   /// Retrieves all logged sets within a given date range.
   Future<List<WorkoutSet>> getSetsInDateRange(DateTime start, DateTime end);
 }
+
+/// Explicit exception thrown on write errors, corrupt reads, or constraint violations in the session repository.
+class SessionRepositoryException implements Exception {
+  final String message;
+  final dynamic cause;
+
+  SessionRepositoryException(this.message, [this.cause]);
+
+  @override
+  String toString() => 'SessionRepositoryException: $message (${cause ?? ""})';
+}

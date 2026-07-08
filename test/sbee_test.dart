@@ -1,6 +1,9 @@
 import 'package:drift/native.dart';
 import 'package:test/test.dart';
 import 'package:sbee/sbee.dart';
+import 'package:sbee/src/engine/autoregulation.dart';
+import 'package:sbee/src/engine/safety_rules.dart';
+import 'package:sbee/src/engine/session_state_machine.dart';
 
 void main() {
   group('ExerciseGraph Tests', () {

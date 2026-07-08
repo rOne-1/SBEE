@@ -1,5 +1,7 @@
 import 'package:test/test.dart';
 import 'package:sbee/sbee.dart';
+import 'package:sbee/src/engine/detraining.dart';
+import 'package:sbee/src/engine/safety_rules.dart';
 
 void main() {
   group('DetrainingLogic Tests', () {

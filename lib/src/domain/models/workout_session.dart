@@ -15,6 +15,8 @@ class WorkoutSet {
   final int? reportedRpe; // Null if set is not yet completed/reported
   final MillerVariables variables;
   final DateTime timestamp;
+  final Duration? restDuration;
+  final List<String> cues;
 
   const WorkoutSet({
     required this.id,
@@ -27,6 +29,8 @@ class WorkoutSet {
     this.reportedRpe,
     required this.variables,
     required this.timestamp,
+    this.restDuration,
+    this.cues = const [],
   });
 
   bool get isHighIntensity => (reportedRpe ?? 0) >= 8;
@@ -42,6 +46,8 @@ class WorkoutSet {
     int? reportedRpe,
     MillerVariables? variables,
     DateTime? timestamp,
+    Duration? restDuration,
+    List<String>? cues,
   }) {
     return WorkoutSet(
       id: id ?? this.id,
@@ -54,6 +60,8 @@ class WorkoutSet {
       reportedRpe: reportedRpe ?? this.reportedRpe,
       variables: variables ?? this.variables,
       timestamp: timestamp ?? this.timestamp,
+      restDuration: restDuration ?? this.restDuration,
+      cues: cues ?? this.cues,
     );
   }
 }

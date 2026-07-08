@@ -1,5 +1,6 @@
 import 'package:test/test.dart';
 import 'package:sbee/sbee.dart';
+import 'package:sbee/src/engine/scheduler.dart';
 
 void main() {
   group('PeriodizationScheduler Tests', () {

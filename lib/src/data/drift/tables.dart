@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 /// Drift representation of workout sessions.
+@TableIndex(name: 'idx_workout_sessions_time', columns: {#startTime, #endTime})
 class DriftWorkoutSessions extends Table {
   TextColumn get id => text()();
   DateTimeColumn get startTime => dateTime()();
@@ -13,6 +14,7 @@ class DriftWorkoutSessions extends Table {
 }
 
 /// Drift representation of individual sets within workout sessions.
+@TableIndex(name: 'idx_workout_sets_pattern_time', columns: {#movementPattern, #timestamp})
 class DriftWorkoutSets extends Table {
   TextColumn get id => text()();
   TextColumn get sessionId => text().customConstraint('REFERENCES drift_workout_sessions(id) ON DELETE CASCADE NOT NULL')();
@@ -31,6 +33,8 @@ class DriftWorkoutSets extends Table {
   IntColumn get tempo => integer()();
 
   DateTimeColumn get timestamp => dateTime()();
+  IntColumn get restDurationSeconds => integer().nullable()();
+  TextColumn get cuesJson => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

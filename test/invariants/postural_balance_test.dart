@@ -1,5 +1,6 @@
 import 'package:glados/glados.dart';
 import 'package:sbee/sbee.dart';
+import 'package:sbee/src/engine/safety_rules.dart';
 
 void main() {
   Glados(any.list(any.list(any.int)), ExploreConfig(numRuns: 1000)).test(

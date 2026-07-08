@@ -48,3 +48,14 @@ abstract class ProgressionRepository {
   /// Saves the date when the user achieved a specific overall status.
   Future<void> saveStatusAchievedDate(String status, DateTime date);
 }
+
+/// Explicit exception thrown on write errors, corrupt reads, or constraint violations in the progression repository.
+class ProgressionRepositoryException implements Exception {
+  final String message;
+  final dynamic cause;
+
+  ProgressionRepositoryException(this.message, [this.cause]);
+
+  @override
+  String toString() => 'ProgressionRepositoryException: $message (${cause ?? ""})';
+}
