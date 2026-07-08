@@ -168,5 +168,117 @@ void main() {
       );
       expect(isPullingLocked, isFalse, reason: 'Pulling is not locked.');
     });
+
+    test('Lockout Interaction Integration: Case 1: Detraining active, 48h Recovery Lock inactive', () {
+      final base = DateTime(2026, 7, 1, 12, 0);
+      
+      final oldSession = WorkoutSession(
+        id: 'old_1',
+        startTime: base.subtract(const Duration(days: 15)),
+        endTime: base.subtract(const Duration(days: 15, minutes: 45)),
+        isCompleted: true,
+      );
+
+      final integrationHistory = [oldSession];
+
+      final isDetraining = DetrainingLogic.isDetrainingActive(
+        completedSessions: integrationHistory,
+        currentTime: base,
+      );
+      expect(isDetraining, isTrue);
+
+      final isPushLocked = SafetyRules.isMovementLocked(
+        pastSets: [],
+        pattern: MovementPattern.pushing,
+        currentTime: base,
+      );
+      expect(isPushLocked, isFalse);
+
+      final isVeryHeavyAllowed = DetrainingLogic.isDayTypeAllowed(
+        dayType: DayType.veryHeavy,
+        completedSessions: integrationHistory,
+        currentTime: base,
+      );
+      expect(isVeryHeavyAllowed, isFalse);
+    });
+
+    test('Lockout Interaction Integration: Case 2: Detraining inactive, 48h Recovery Lock active', () {
+      final base = DateTime(2026, 7, 1, 12, 0);
+      
+      final recentSession = WorkoutSession(
+        id: 'recent_1',
+        startTime: base.subtract(const Duration(days: 1)),
+        endTime: base.subtract(const Duration(days: 1, minutes: 45)),
+        isCompleted: true,
+      );
+
+      final recentSet = WorkoutSet(
+        id: 'recent_set',
+        sessionId: 'recent_1',
+        exerciseId: 'ex_push',
+        movementPattern: MovementPattern.pushing,
+        setNumber: 1,
+        reps: 5,
+        targetRpe: 8,
+        reportedRpe: 9,
+        variables: const MillerVariables(),
+        timestamp: base.subtract(const Duration(hours: 12)),
+      );
+
+      final integrationHistory = [recentSession];
+
+      final isDetraining = DetrainingLogic.isDetrainingActive(
+        completedSessions: integrationHistory,
+        currentTime: base,
+      );
+      expect(isDetraining, isFalse);
+
+      final isPushLocked = SafetyRules.isMovementLocked(
+        pastSets: [recentSet],
+        pattern: MovementPattern.pushing,
+        currentTime: base,
+      );
+      expect(isPushLocked, isTrue);
+
+      final isVeryHeavyAllowed = DetrainingLogic.isDayTypeAllowed(
+        dayType: DayType.veryHeavy,
+        completedSessions: integrationHistory,
+        currentTime: base,
+      );
+      expect(isVeryHeavyAllowed, isTrue);
+    });
+
+    test('Lockout Interaction Integration: Case 3: Both locks inactive', () {
+      final base = DateTime(2026, 7, 1, 12, 0);
+      
+      final recentSession = WorkoutSession(
+        id: 'recent_1',
+        startTime: base.subtract(const Duration(days: 1)),
+        endTime: base.subtract(const Duration(days: 1, minutes: 45)),
+        isCompleted: true,
+      );
+
+      final integrationHistory = [recentSession];
+
+      final isDetraining = DetrainingLogic.isDetrainingActive(
+        completedSessions: integrationHistory,
+        currentTime: base,
+      );
+      expect(isDetraining, isFalse);
+
+      final isPushLocked = SafetyRules.isMovementLocked(
+        pastSets: [],
+        pattern: MovementPattern.pushing,
+        currentTime: base,
+      );
+      expect(isPushLocked, isFalse);
+
+      final isVeryHeavyAllowed = DetrainingLogic.isDayTypeAllowed(
+        dayType: DayType.veryHeavy,
+        completedSessions: integrationHistory,
+        currentTime: base,
+      );
+      expect(isVeryHeavyAllowed, isTrue);
+    });
   });
 }

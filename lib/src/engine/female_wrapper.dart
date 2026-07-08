@@ -1,3 +1,9 @@
+import '../domain/models/movement_pattern.dart';
+import '../domain/models/workout_session.dart';
+import 'autoregulation.dart';
+import 'miller_variables.dart';
+import 'safety_rules.dart';
+
 /// User profile input data for the female physiology pre-processing layer.
 class FemaleProfile {
   final String userStatus; // E.g., "Untrained_Female", "Trained_Female"
@@ -45,6 +51,7 @@ class FemalePhysiologyWrapper {
   /// Recovery Pacing & Early Follicular Rest Density:
   /// - Sets 30-45s rest on conditioning but 2-3 mins on heavy strength.
   /// - Applies rest density increase (+30s) if Untrained_Female is in cycle days 1–3.
+  /// Note: This is new logic, unit-test-covered (not decorated from a property-tested core method).
   static Duration adjustRestInterval({
     required Duration originalRest,
     required String trainingFocus, // "conditioning" or "strength"
@@ -107,6 +114,7 @@ class FemalePhysiologyWrapper {
 
   /// UNVERIFIED-BIBLIOGRAPHY SOURCE
   /// Age 45+ Logic: Replaces 1RM intensity logic with RIR target (2-3 RIR).
+  /// Note: This is new logic, unit-test-covered (not decorated from a property-tested core method).
   static String adjustIntensityMetric({
     required String originalMetric,
     required FemaleProfile profile,
@@ -119,6 +127,7 @@ class FemalePhysiologyWrapper {
 
   /// UNVERIFIED-BIBLIOGRAPHY SOURCE
   /// Age 45+ Logic: Mandates a floor of 3 sets per pattern.
+  /// Note: This is new logic, unit-test-covered (not decorated from a property-tested core method).
   static int adjustMinSets({
     required int originalMinSets,
     required FemaleProfile profile,
@@ -131,6 +140,7 @@ class FemalePhysiologyWrapper {
 
   /// UNVERIFIED-BIBLIOGRAPHY SOURCE
   /// Age 45+ Logic: Gates plyometrics based on joint pain status.
+  /// Note: This is new logic, unit-test-covered (not decorated from a property-tested core method).
   static bool isPlyometricsAllowed({
     required FemaleProfile profile,
   }) {
@@ -138,5 +148,47 @@ class FemalePhysiologyWrapper {
       return false; // Gated
     }
     return true; // Allowed
+  }
+
+  /// Decorator for AutoregulationEngine.adjustVariables.
+  /// Adjusts targetRpe first before delegating.
+  static MillerVariables adjustVariables({
+    required MillerVariables currentVariables,
+    required int reportedRpe,
+    required int targetRpe,
+    required FemaleProfile profile,
+    bool isAdvancedTempoUnlocked = false,
+  }) {
+    final adjustedTarget = adjustTargetRpe(originalTargetRpe: targetRpe, profile: profile);
+    return AutoregulationEngine.adjustVariables(
+      currentVariables: currentVariables,
+      reportedRpe: reportedRpe,
+      targetRpe: adjustedTarget,
+      isAdvancedTempoUnlocked: isAdvancedTempoUnlocked,
+    );
+  }
+
+  /// Decorator for SafetyRules.isMovementLocked.
+  static bool isMovementLocked({
+    required List<WorkoutSet> pastSets,
+    required MovementPattern pattern,
+    required DateTime currentTime,
+  }) {
+    return SafetyRules.isMovementLocked(
+      pastSets: pastSets,
+      pattern: pattern,
+      currentTime: currentTime,
+    );
+  }
+
+  /// Decorator for SafetyRules.validatePushPullRatio.
+  static bool validatePushPullRatio({
+    required List<WorkoutSet> pastSets,
+    required DateTime currentTime,
+  }) {
+    return SafetyRules.validatePushPullRatio(
+      pastSets: pastSets,
+      currentTime: currentTime,
+    );
   }
 }

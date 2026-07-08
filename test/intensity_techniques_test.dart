@@ -91,5 +91,14 @@ void main() {
       // Enough sessions, high RPE (3 sessions, average RPE 9.0 > 8.0) -> Locked
       expect(IntensityTechniques.canProgressTabata(completedTabataSessionsInPhase: [sHighRpe, sHighRpe, sHighRpe], requiredSessionCount: 3, targetRpe: 7.0), isFalse);
     });
+
+    test('Tabata hybrid progression gate zero-session edge case', () {
+      final canProgress = IntensityTechniques.canProgressTabata(
+        completedTabataSessionsInPhase: [],
+        requiredSessionCount: 0,
+        targetRpe: 7.0,
+      );
+      expect(canProgress, isFalse);
+    });
   });
 }
