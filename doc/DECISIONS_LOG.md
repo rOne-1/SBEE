@@ -1,0 +1,150 @@
+# SBEE Decisions Log
+
+This document records the architectural history and key design decisions made during the three development phases of the Science-Based Exercise Engine (SBEE). It details the core logic invariants, limitations, database schema evolution, and contains the unedited test suite logs from the validation runs.
+
+---
+
+## 1. Phase-Based Design Decisions
+
+### Phase 1: Foundations & Biomechanical Progressions
+- **Kenneth Miller's 5-Variable Biomechanical Progression Framework**:
+  - Resistance training variables are adjusted according to a strict priority hierarchy when load modifications are limited (e.g. bodyweight or bands):
+    $$\text{Load} > \text{Body Position} > \text{Range of Motion (ROM)} > \text{Height/Elevation} > \text{Speed/Tempo}$$
+  - **Increment (Progression)**: Increments the highest priority variable that is not already at its maximum limit. Access to the advanced speed/tempo (level 2) is locked unless intermediate status achieves a $\ge 21$-day unlock gate.
+  - **Regression (LIFO Rollback)**: Regresses variables in reverse priority order:
+    $$\text{Speed/Tempo} > \text{Height/Elevation} > \text{Range of Motion (ROM)} > \text{Body Position} > \text{Load}$$
+    This operates as a Last-In, First-Out (LIFO) rollback to systematically undo the most recent biomechanical progression.
+- **Advanced Tempo Gate**: Unlocking the slow-tempo execution tier (level 2) is gated by verifying that the user achieved "Intermediate" status $\ge 21$ days ago, preventing neuromuscular strain.
+
+### Phase 2: Periodization & Safety Invariants
+- **Daily Undulating Periodization (DUP)**: 
+  - Day-types are rotated in a deterministic sequence to prevent adaptation plateauing:
+    $$\text{moderate} \rightarrow \text{veryHeavy} \rightarrow \text{power} \rightarrow \text{veryLight} \rightarrow \text{highLactic}$$
+  - Enforces that all day-types are completed within a sliding 14-day window.
+- **Deload Macrocycle**: 
+  - Scheduled automatically every 5th week (Weeks 4, 9, 14, etc.).
+  - Restricts volume (sets per exercise) by 50% (rounded up, minimum 1 set).
+  - Caps maximum target RPE for all sets to `6`.
+- **48-Hour Recovery Gate Lockout**:
+  - Preserves physiological recovery. If a user logs a high-intensity set ($\ge 8$ RPE or maximum effort $\ge 9$ RPE), the parent movement pattern is locked for training for 48 hours relative to the timestamp of the logged set.
+  - **Design Decision**: Pattern-level (rather than exercise-level) locking was chosen because the current schema does not classify exercises into light/heavy variants. Pattern-level locking ensures that a fatigued muscle group is completely rested.
+- **2:1 Pull-to-Push Balance Invariant**:
+  - Enforces a postural balance constraint over a sliding 14-day window.
+  - The total set volume of Pulling exercises must be at least double ($\ge 2\times$) the volume of Pushing exercises to prevent shoulder internal rotation issues common in bodyweight training.
+- **14-Day Detraining Lockout**:
+  - Prevents overexertion after a period of inactivity. If the gap between the current time and the last completed session is $\ge 14$ days, the detraining lockout is triggered:
+    - High-intensity day-types (`veryHeavy`, `power`) are redirected to `moderate`.
+    - Tempos are restricted to a strict `4-2-1` tempo baseline to re-establish joint stability.
+    - Specialized stabilization cues are injected into workout instructions.
+
+### Phase 3: Host Customizations & Female Physiology
+- **Isolated Customization Layer (Pre-processing/Decorator)**:
+  - Female physiology tracking was built using a wrapper class that intercepts parameters before core engine execution (pre-processing) and adds cues/offsets afterwards (decorating). This ensures that the core mathematical engine remains a single source of truth and is unaffected by external population-specific heuristics.
+- **Age 45+ Safety Overrides**:
+  - Replaces absolute 1RM intensity metrics with a relative Reps in Reserve (2-3 RIR) target.
+  - Restricts high-impact plyometrics if joint pain is reported.
+  - Mandates a volume floor of at least 3 sets per movement pattern.
+- **Endocrine-Centric Explanations**:
+  - Replaces traditional, male-dominated testosterone cues with cues referencing Growth Hormone (GH) pulsatility, matching female physiological adaptation profiles.
+- **Menstrual Cycle Phase Offsets**:
+  - During early follicular days (1-3), target RPE is reduced by `1` and rest periods are padded by `30` seconds.
+
+---
+
+## 2. Core Invariants & Variable Range Limits
+
+SBEE maintains strict numeric boundaries across all calculations:
+
+| Attribute | Minimum Value | Maximum Value | Default | Rules / Invariants |
+| :--- | :--- | :--- | :--- | :--- |
+| `load` | 1 | 5 | 1 | Miller biomechanical load variable |
+| `bodyPosition` | 1 | 5 | 1 | Miller body position modifier |
+| `rom` | 1 | 5 | 1 | Miller range of motion modifier |
+| `height` | 1 | 5 | 1 | Miller height/elevation modifier |
+| `tempo` | 1 | 2 | 1 | 1 = Standard 4-2-1, 2 = Slow 6s tempo |
+| `RPE` | 0 | 10 | — | subjective Borg exertion index |
+| `set count floor` | 1 | — | 1 | Default floor is 1 (general-population floor gap). Age 45+ overrides minimum generated sets to 3. |
+
+---
+
+## 3. App-Specific Design Decisions
+
+### `APP-SPECIFIC DESIGN DECISION`: Predecessor-Traversal-and-Max-Out Regression Logic
+During Phase 3 review, a critical training-stimulus decision was finalized concerning regression along the [ExerciseGraph](../lib/src/domain/progression/exercise_graph.dart) DAG.
+
+- **Problem**: When a user reports over-stimulation (reported RPE > target RPE + 1) while working at the lowest biomechanical baseline tier (`load=1, bodyPosition=1, rom=1, height=1, tempo=1`), they must regress to the predecessor exercise in the graph. However, simply resetting the predecessor exercise variables to `1, 1, 1, 1, 1` drops the user's workload excessively, leading to rapid detraining.
+- **Decision**: When regressing to a predecessor exercise, the engine dynamically sets the predecessor's variables to their absolute maximum limit (`load=5, bodyPosition=5, rom=5, height=5, tempo=2`). This "predecessor-traversal-and-max-out" strategy sustains stimulus at a safe tier immediately below the failed exercise, facilitating high-density stabilization work instead of dropping the user back to baseline.
+
+---
+
+## 4. Database Schema Versioning
+
+Drift persistence schema versions are tracked as follows:
+- **Schema Version 1**: Core tracking. Supported exercises, sets (reps, target RPE, reported RPE), and Miller variables.
+- **Schema Version 2**: Upgraded to support undulating periodization and advanced wrapper details:
+  - Added `dayType` column to `DriftWorkoutSessions`.
+  - Added `restDurationSeconds` and `cuesJson` columns to `DriftWorkoutSets` for detailed feedback logs.
+  - Added indexes `idx_workout_sessions_time` and `idx_workout_sets_pattern_time` to optimize range-based safety queries.
+
+---
+
+## 4.5. Known Limitations & Deferred Items
+
+The current design of SBEE has the following known limitations and deferred implementation items:
+- **Kegel / Pelvic Floor Module**: Although endocrine and structural cues are generated, a dedicated, parameterized tracking module for Kegel or direct pelvic floor exercises was deferred and is not built in the current release.
+- **General-Population Set-Volume Floor Gap**: A general-population minimum set floor is not enforced globally inside [SafetyRules](../lib/src/engine/safety_rules.dart), leaving it at a default floor of `1` (which acts as a floor gap). The only active set floor constraint currently in place is the age 45+ wrapper override, which sets a minimum floor of `3`.
+- **Unverified Bibliography Source Warnings**: The physiological and cycle-based rules (such as menstrual cycle day offsets, endocrine Growth Hormone cues, and submaximal pacing VO2 max ranges) are based on research from the unverified bibliography, which remains subject to ongoing scientific consensus validation.
+- **Test-Scale Exercise Dataset**: The default internal exercise structures used for validation are test-scale. Production scaling requires the host application database integration to load a full catalog.
+
+---
+
+## 4.8. Versioning
+
+The current library version is `0.1.0`. All changes, database schema migrations, and feature additions are recorded in the [CHANGELOG.md](../CHANGELOG.md) in the repository root.
+
+---
+
+## 5. Unedited Test Suite Logs
+
+Below is the complete, unedited list of the 38 unique tests verifying all components of the SBEE library.
+
+```
+14-Day Detraining Lockout Invariant (testing 1000 inputs)
+2:1 Pull-to-Push Set-Volume Ratio Invariant (testing 1000 inputs)
+48-Hour Recovery Gate Lockout Invariant with Pattern Isolation (testing 1000 inputs)
+AutoregulationEngine Tests Correctly adjusts Miller variables (Load > Pos > ROM > Height > Tempo)
+AutoregulationEngine Tests Correctly evaluates RPE differences
+AutoregulationEngine Tests Locks advanced tempo (level 2) if flag is false
+DetrainingLogic Tests Inactivity of >= 14 days triggers detraining
+DetrainingLogic Tests Locked out day-types under detraining status
+DetrainingLogic Tests Lockout Interaction Integration: 48h Recovery Lock + Detraining Lockout
+DetrainingLogic Tests Lockout Interaction Integration: Case 1: Detraining active, 48h Recovery Lock inactive
+DetrainingLogic Tests Lockout Interaction Integration: Case 2: Detraining inactive, 48h Recovery Lock active
+DetrainingLogic Tests Lockout Interaction Integration: Case 3: Both locks inactive
+DetrainingLogic Tests Tempo and corrective cues under detraining status
+Drift Database Migration Tests Upgrade path from schema version 1 to 2 runs successfully
+Drift Repositories Tests DriftProgressionRepository tracks competency and status date
+Drift Repositories Tests DriftSessionRepository saves and retrieves sessions and sets
+ExerciseGraph Tests Successfully builds acyclic graph and sorts topologically
+ExerciseGraph Tests Throws ArgumentError if a cycle is introduced
+FemalePhysiologyWrapper Tests Age 45+ logic overrides target metric and gates plyometrics
+FemalePhysiologyWrapper Tests Early Follicular RPE and Rest offsets are applied correctly
+FemalePhysiologyWrapper Tests Endocrine Explanation surfaces growth hormone correctly
+FemalePhysiologyWrapper Tests McGill Big 3 and Knee valgus safety rail cues are triggered
+FemalePhysiologyWrapper Tests Recovery rest intervals pacing for conditioning and strength
+FemalePhysiologyWrapper Tests Spinal flexion core pacing cue override
+FemalePhysiologyWrapper Tests Submaximal pacing VO2 max range
+IntensityTechniques Tests EMOM constraints rep selection limits
+IntensityTechniques Tests Myo-Reps generation enforces 3-5 mini-sets boundaries
+IntensityTechniques Tests Tabata hybrid progression gate checks sessions and RPE
+IntensityTechniques Tests Tabata hybrid progression gate zero-session edge case
+PeriodizationScheduler Tests Apply deload cuts volume in half and limits target RPE to 6
+PeriodizationScheduler Tests Deload week is determined active on week 5 (index 4)
+PeriodizationScheduler Tests Next day-type rotates correctly
+Repository Validation and Exception Invariant (testing 1000 inputs)
+SbeeEngine Tests generateNextWorkout filters equipment, recovery locks, and joint-pain plyometrics
+SbeeEngine Tests logSetPerformance triggers DAG progression when maxed out and under-stimulated
+SbeeEngine Tests logSetPerformance triggers predecessor-traversal-and-max-out regression when at baseline and over-stimulated
+SessionStateMachine & Stream Tests SessionStateMachine enforces correct transitions
+SessionStateMachine & Stream Tests SessionStreamManager pipelines workout flow reactively
+```

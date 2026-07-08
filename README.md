@@ -2,6 +2,18 @@
 
 SBEE is a pure-Dart exercise progression and scheduling engine designed for resistance training. It features undulating periodization, deload schedules, autoregulated bio-mechanic adjustments (Kenneth Miller's 5-variable progression), safety lockouts, female physiology wrappers, and return-to-training (detraining) safety gates.
 
+---
+
+## Documentation Index
+
+Explore the comprehensive technical documentation for SBEE:
+- **[Architecture Guide](doc/ARCHITECTURE.md)**: Conceptual layout, design patterns (Pre-processing/Decorator), session state tracking FSM, and database schemas.
+- **[API Reference Guide](doc/API_REFERENCE.md)**: Class-level signatures, constructors, parameters, properties, and exceptions.
+- **[Integration Guide](doc/INTEGRATION_GUIDE.md)**: Step-by-step setup walkthrough, active session tracking stream wiring, generic focus category mapping, and exception recovery.
+- **[Decisions Log](doc/DECISIONS_LOG.md)**: Chronological phase log, core numeric invariants, the predecessor-traversal-and-max-out regression design decision, database schema migration notes, and the unedited list of the 38 unique tests.
+
+---
+
 ## Public API
 
 The curated public API (`package:sbee/sbee.dart`) exposes:
