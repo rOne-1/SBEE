@@ -65,8 +65,6 @@ SBEE maintains strict numeric boundaries across all calculations:
 | `RPE` | 0 | 10 | — | subjective Borg exertion index |
 | `set count floor` | 1 | — | 1 | Default floor is 1 (general-population floor gap). Age 45+ overrides minimum generated sets to 3. |
 
----
-
 ## 3. App-Specific Design Decisions
 
 ### `APP-SPECIFIC DESIGN DECISION`: Predecessor-Traversal-and-Max-Out Regression Logic
@@ -74,6 +72,15 @@ During Phase 3 review, a critical training-stimulus decision was finalized conce
 
 - **Problem**: When a user reports over-stimulation (reported RPE > target RPE + 1) while working at the lowest biomechanical baseline tier (`load=1, bodyPosition=1, rom=1, height=1, tempo=1`), they must regress to the predecessor exercise in the graph. However, simply resetting the predecessor exercise variables to `1, 1, 1, 1, 1` drops the user's workload excessively, leading to rapid detraining.
 - **Decision**: When regressing to a predecessor exercise, the engine dynamically sets the predecessor's variables to their absolute maximum limit (`load=5, bodyPosition=5, rom=5, height=5, tempo=2`). This "predecessor-traversal-and-max-out" strategy sustains stimulus at a safe tier immediately below the failed exercise, facilitating high-density stabilization work instead of dropping the user back to baseline.
+
+### `APP-SPECIFIC DESIGN DECISION`: Postural Balance Generation Enforcement
+Enforcing a 2:1 pull-to-push set-volume ratio is required for preventing shoulder internal rotation issues.
+
+- **Problem**: Previously, postural balance checks were only descriptive (`validatePosturalBalance`). It was possible for the generator to output sessions with excess push sets, requiring application-level corrections.
+- **Decision**: Enforced ratio checks directly on the generator side (`generateNextWorkout`). Pushing exercises are selected sequentially from a deterministically shuffled list, and only added if the combined history + new session sets satisfy:
+  $$H_{\text{pull}} + N_{\text{pull}} \ge 2 \times (H_{\text{push}} + N_{\text{push}} + \text{setsCount})$$
+  If no pulling exercises are available in the candidate pool, the engine falls back to select pushing exercises anyway and flags the session with `PosturalWarningReason.noPullingAvailable`. Deficits that cannot be corrected are flagged as `PosturalWarningReason.historicalDeficit`.
+- **Scaling Points**: All other-pattern and pulling exercises are included unconditionally in their original order. For massive catalogs, introducing sizing constraints or exercise count caps is deferred as a known scaling point.
 
 ---
 
@@ -85,6 +92,8 @@ Drift persistence schema versions are tracked as follows:
   - Added `dayType` column to `DriftWorkoutSessions`.
   - Added `restDurationSeconds` and `cuesJson` columns to `DriftWorkoutSets` for detailed feedback logs.
   - Added indexes `idx_workout_sessions_time` and `idx_workout_sets_pattern_time` to optimize range-based safety queries.
+- **Schema Version 3**: Added postural balance tracking features:
+  - Added `posturalWarning` and `posturalWarningReason` text columns to `DriftWorkoutSessions` table.
 
 ---
 

@@ -47,6 +47,8 @@ class DriftSessionRepository implements SessionRepository {
             endTime: session.endTime,
             isCompleted: session.isCompleted,
             dayType: session.dayType?.index,
+            posturalWarning: session.posturalWarning,
+            posturalWarningReason: session.posturalWarningReason.name,
           ),
         );
 
@@ -111,6 +113,16 @@ class DriftSessionRepository implements SessionRepository {
         cues: row.cuesJson != null && row.cuesJson!.isNotEmpty ? row.cuesJson!.split('||') : const [],
       )).toList();
 
+      PosturalWarningReason parsedReason = PosturalWarningReason.none;
+      if (sessionRow.posturalWarningReason != null) {
+        for (final r in PosturalWarningReason.values) {
+          if (r.name == sessionRow.posturalWarningReason) {
+            parsedReason = r;
+            break;
+          }
+        }
+      }
+
       return WorkoutSession(
         id: sessionRow.id,
         startTime: sessionRow.startTime,
@@ -118,6 +130,8 @@ class DriftSessionRepository implements SessionRepository {
         isCompleted: sessionRow.isCompleted,
         sets: sets,
         dayType: sessionRow.dayType != null ? DayType.values[sessionRow.dayType!] : null,
+        posturalWarning: sessionRow.posturalWarning,
+        posturalWarningReason: parsedReason,
       );
     } catch (e) {
       throw SessionRepositoryException('Failed to read session $id', e);

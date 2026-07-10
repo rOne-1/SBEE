@@ -14,7 +14,7 @@ class SbeeDatabase extends _$SbeeDatabase {
   SbeeDatabase(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -29,6 +29,10 @@ class SbeeDatabase extends _$SbeeDatabase {
             // Create new indexes using generated Index instances
             await m.createIndex(idxWorkoutSessionsTime);
             await m.createIndex(idxWorkoutSetsPatternTime);
+          }
+          if (from < 3) {
+            await m.addColumn(driftWorkoutSessions, driftWorkoutSessions.posturalWarning);
+            await m.addColumn(driftWorkoutSessions, driftWorkoutSessions.posturalWarningReason);
           }
         },
       );

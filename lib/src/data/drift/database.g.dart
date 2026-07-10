@@ -42,9 +42,28 @@ class $DriftWorkoutSessionsTable extends DriftWorkoutSessions
   late final GeneratedColumn<int> dayType = GeneratedColumn<int>(
       'day_type', aliasedName, true,
       type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _posturalWarningMeta =
+      const VerificationMeta('posturalWarning');
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, startTime, endTime, isCompleted, dayType];
+  late final GeneratedColumn<String> posturalWarning = GeneratedColumn<String>(
+      'postural_warning', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _posturalWarningReasonMeta =
+      const VerificationMeta('posturalWarningReason');
+  @override
+  late final GeneratedColumn<String> posturalWarningReason =
+      GeneratedColumn<String>('postural_warning_reason', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        startTime,
+        endTime,
+        isCompleted,
+        dayType,
+        posturalWarning,
+        posturalWarningReason
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -81,6 +100,18 @@ class $DriftWorkoutSessionsTable extends DriftWorkoutSessions
       context.handle(_dayTypeMeta,
           dayType.isAcceptableOrUnknown(data['day_type']!, _dayTypeMeta));
     }
+    if (data.containsKey('postural_warning')) {
+      context.handle(
+          _posturalWarningMeta,
+          posturalWarning.isAcceptableOrUnknown(
+              data['postural_warning']!, _posturalWarningMeta));
+    }
+    if (data.containsKey('postural_warning_reason')) {
+      context.handle(
+          _posturalWarningReasonMeta,
+          posturalWarningReason.isAcceptableOrUnknown(
+              data['postural_warning_reason']!, _posturalWarningReasonMeta));
+    }
     return context;
   }
 
@@ -100,6 +131,11 @@ class $DriftWorkoutSessionsTable extends DriftWorkoutSessions
           .read(DriftSqlType.bool, data['${effectivePrefix}is_completed'])!,
       dayType: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}day_type']),
+      posturalWarning: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}postural_warning']),
+      posturalWarningReason: attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}postural_warning_reason']),
     );
   }
 
@@ -116,12 +152,16 @@ class DriftWorkoutSession extends DataClass
   final DateTime? endTime;
   final bool isCompleted;
   final int? dayType;
+  final String? posturalWarning;
+  final String? posturalWarningReason;
   const DriftWorkoutSession(
       {required this.id,
       required this.startTime,
       this.endTime,
       required this.isCompleted,
-      this.dayType});
+      this.dayType,
+      this.posturalWarning,
+      this.posturalWarningReason});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -133,6 +173,12 @@ class DriftWorkoutSession extends DataClass
     map['is_completed'] = Variable<bool>(isCompleted);
     if (!nullToAbsent || dayType != null) {
       map['day_type'] = Variable<int>(dayType);
+    }
+    if (!nullToAbsent || posturalWarning != null) {
+      map['postural_warning'] = Variable<String>(posturalWarning);
+    }
+    if (!nullToAbsent || posturalWarningReason != null) {
+      map['postural_warning_reason'] = Variable<String>(posturalWarningReason);
     }
     return map;
   }
@@ -148,6 +194,12 @@ class DriftWorkoutSession extends DataClass
       dayType: dayType == null && nullToAbsent
           ? const Value.absent()
           : Value(dayType),
+      posturalWarning: posturalWarning == null && nullToAbsent
+          ? const Value.absent()
+          : Value(posturalWarning),
+      posturalWarningReason: posturalWarningReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(posturalWarningReason),
     );
   }
 
@@ -160,6 +212,9 @@ class DriftWorkoutSession extends DataClass
       endTime: serializer.fromJson<DateTime?>(json['endTime']),
       isCompleted: serializer.fromJson<bool>(json['isCompleted']),
       dayType: serializer.fromJson<int?>(json['dayType']),
+      posturalWarning: serializer.fromJson<String?>(json['posturalWarning']),
+      posturalWarningReason:
+          serializer.fromJson<String?>(json['posturalWarningReason']),
     );
   }
   @override
@@ -171,6 +226,9 @@ class DriftWorkoutSession extends DataClass
       'endTime': serializer.toJson<DateTime?>(endTime),
       'isCompleted': serializer.toJson<bool>(isCompleted),
       'dayType': serializer.toJson<int?>(dayType),
+      'posturalWarning': serializer.toJson<String?>(posturalWarning),
+      'posturalWarningReason':
+          serializer.toJson<String?>(posturalWarningReason),
     };
   }
 
@@ -179,13 +237,21 @@ class DriftWorkoutSession extends DataClass
           DateTime? startTime,
           Value<DateTime?> endTime = const Value.absent(),
           bool? isCompleted,
-          Value<int?> dayType = const Value.absent()}) =>
+          Value<int?> dayType = const Value.absent(),
+          Value<String?> posturalWarning = const Value.absent(),
+          Value<String?> posturalWarningReason = const Value.absent()}) =>
       DriftWorkoutSession(
         id: id ?? this.id,
         startTime: startTime ?? this.startTime,
         endTime: endTime.present ? endTime.value : this.endTime,
         isCompleted: isCompleted ?? this.isCompleted,
         dayType: dayType.present ? dayType.value : this.dayType,
+        posturalWarning: posturalWarning.present
+            ? posturalWarning.value
+            : this.posturalWarning,
+        posturalWarningReason: posturalWarningReason.present
+            ? posturalWarningReason.value
+            : this.posturalWarningReason,
       );
   DriftWorkoutSession copyWithCompanion(DriftWorkoutSessionsCompanion data) {
     return DriftWorkoutSession(
@@ -195,6 +261,12 @@ class DriftWorkoutSession extends DataClass
       isCompleted:
           data.isCompleted.present ? data.isCompleted.value : this.isCompleted,
       dayType: data.dayType.present ? data.dayType.value : this.dayType,
+      posturalWarning: data.posturalWarning.present
+          ? data.posturalWarning.value
+          : this.posturalWarning,
+      posturalWarningReason: data.posturalWarningReason.present
+          ? data.posturalWarningReason.value
+          : this.posturalWarningReason,
     );
   }
 
@@ -205,13 +277,16 @@ class DriftWorkoutSession extends DataClass
           ..write('startTime: $startTime, ')
           ..write('endTime: $endTime, ')
           ..write('isCompleted: $isCompleted, ')
-          ..write('dayType: $dayType')
+          ..write('dayType: $dayType, ')
+          ..write('posturalWarning: $posturalWarning, ')
+          ..write('posturalWarningReason: $posturalWarningReason')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, startTime, endTime, isCompleted, dayType);
+  int get hashCode => Object.hash(id, startTime, endTime, isCompleted, dayType,
+      posturalWarning, posturalWarningReason);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -220,7 +295,9 @@ class DriftWorkoutSession extends DataClass
           other.startTime == this.startTime &&
           other.endTime == this.endTime &&
           other.isCompleted == this.isCompleted &&
-          other.dayType == this.dayType);
+          other.dayType == this.dayType &&
+          other.posturalWarning == this.posturalWarning &&
+          other.posturalWarningReason == this.posturalWarningReason);
 }
 
 class DriftWorkoutSessionsCompanion
@@ -230,6 +307,8 @@ class DriftWorkoutSessionsCompanion
   final Value<DateTime?> endTime;
   final Value<bool> isCompleted;
   final Value<int?> dayType;
+  final Value<String?> posturalWarning;
+  final Value<String?> posturalWarningReason;
   final Value<int> rowid;
   const DriftWorkoutSessionsCompanion({
     this.id = const Value.absent(),
@@ -237,6 +316,8 @@ class DriftWorkoutSessionsCompanion
     this.endTime = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.dayType = const Value.absent(),
+    this.posturalWarning = const Value.absent(),
+    this.posturalWarningReason = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DriftWorkoutSessionsCompanion.insert({
@@ -245,6 +326,8 @@ class DriftWorkoutSessionsCompanion
     this.endTime = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.dayType = const Value.absent(),
+    this.posturalWarning = const Value.absent(),
+    this.posturalWarningReason = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         startTime = Value(startTime);
@@ -254,6 +337,8 @@ class DriftWorkoutSessionsCompanion
     Expression<DateTime>? endTime,
     Expression<bool>? isCompleted,
     Expression<int>? dayType,
+    Expression<String>? posturalWarning,
+    Expression<String>? posturalWarningReason,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -262,6 +347,9 @@ class DriftWorkoutSessionsCompanion
       if (endTime != null) 'end_time': endTime,
       if (isCompleted != null) 'is_completed': isCompleted,
       if (dayType != null) 'day_type': dayType,
+      if (posturalWarning != null) 'postural_warning': posturalWarning,
+      if (posturalWarningReason != null)
+        'postural_warning_reason': posturalWarningReason,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -272,6 +360,8 @@ class DriftWorkoutSessionsCompanion
       Value<DateTime?>? endTime,
       Value<bool>? isCompleted,
       Value<int?>? dayType,
+      Value<String?>? posturalWarning,
+      Value<String?>? posturalWarningReason,
       Value<int>? rowid}) {
     return DriftWorkoutSessionsCompanion(
       id: id ?? this.id,
@@ -279,6 +369,9 @@ class DriftWorkoutSessionsCompanion
       endTime: endTime ?? this.endTime,
       isCompleted: isCompleted ?? this.isCompleted,
       dayType: dayType ?? this.dayType,
+      posturalWarning: posturalWarning ?? this.posturalWarning,
+      posturalWarningReason:
+          posturalWarningReason ?? this.posturalWarningReason,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -301,6 +394,13 @@ class DriftWorkoutSessionsCompanion
     if (dayType.present) {
       map['day_type'] = Variable<int>(dayType.value);
     }
+    if (posturalWarning.present) {
+      map['postural_warning'] = Variable<String>(posturalWarning.value);
+    }
+    if (posturalWarningReason.present) {
+      map['postural_warning_reason'] =
+          Variable<String>(posturalWarningReason.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -315,6 +415,8 @@ class DriftWorkoutSessionsCompanion
           ..write('endTime: $endTime, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('dayType: $dayType, ')
+          ..write('posturalWarning: $posturalWarning, ')
+          ..write('posturalWarningReason: $posturalWarningReason, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1793,6 +1895,8 @@ typedef $$DriftWorkoutSessionsTableCreateCompanionBuilder
   Value<DateTime?> endTime,
   Value<bool> isCompleted,
   Value<int?> dayType,
+  Value<String?> posturalWarning,
+  Value<String?> posturalWarningReason,
   Value<int> rowid,
 });
 typedef $$DriftWorkoutSessionsTableUpdateCompanionBuilder
@@ -1802,6 +1906,8 @@ typedef $$DriftWorkoutSessionsTableUpdateCompanionBuilder
   Value<DateTime?> endTime,
   Value<bool> isCompleted,
   Value<int?> dayType,
+  Value<String?> posturalWarning,
+  Value<String?> posturalWarningReason,
   Value<int> rowid,
 });
 
@@ -1852,6 +1958,14 @@ class $$DriftWorkoutSessionsTableFilterComposer
   ColumnFilters<int> get dayType => $composableBuilder(
       column: $table.dayType, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<String> get posturalWarning => $composableBuilder(
+      column: $table.posturalWarning,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get posturalWarningReason => $composableBuilder(
+      column: $table.posturalWarningReason,
+      builder: (column) => ColumnFilters(column));
+
   Expression<bool> driftWorkoutSetsRefs(
       Expression<bool> Function($$DriftWorkoutSetsTableFilterComposer f) f) {
     final $$DriftWorkoutSetsTableFilterComposer composer = $composerBuilder(
@@ -1897,6 +2011,14 @@ class $$DriftWorkoutSessionsTableOrderingComposer
 
   ColumnOrderings<int> get dayType => $composableBuilder(
       column: $table.dayType, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get posturalWarning => $composableBuilder(
+      column: $table.posturalWarning,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get posturalWarningReason => $composableBuilder(
+      column: $table.posturalWarningReason,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$DriftWorkoutSessionsTableAnnotationComposer
@@ -1922,6 +2044,12 @@ class $$DriftWorkoutSessionsTableAnnotationComposer
 
   GeneratedColumn<int> get dayType =>
       $composableBuilder(column: $table.dayType, builder: (column) => column);
+
+  GeneratedColumn<String> get posturalWarning => $composableBuilder(
+      column: $table.posturalWarning, builder: (column) => column);
+
+  GeneratedColumn<String> get posturalWarningReason => $composableBuilder(
+      column: $table.posturalWarningReason, builder: (column) => column);
 
   Expression<T> driftWorkoutSetsRefs<T extends Object>(
       Expression<T> Function($$DriftWorkoutSetsTableAnnotationComposer a) f) {
@@ -1976,6 +2104,8 @@ class $$DriftWorkoutSessionsTableTableManager extends RootTableManager<
             Value<DateTime?> endTime = const Value.absent(),
             Value<bool> isCompleted = const Value.absent(),
             Value<int?> dayType = const Value.absent(),
+            Value<String?> posturalWarning = const Value.absent(),
+            Value<String?> posturalWarningReason = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               DriftWorkoutSessionsCompanion(
@@ -1984,6 +2114,8 @@ class $$DriftWorkoutSessionsTableTableManager extends RootTableManager<
             endTime: endTime,
             isCompleted: isCompleted,
             dayType: dayType,
+            posturalWarning: posturalWarning,
+            posturalWarningReason: posturalWarningReason,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -1992,6 +2124,8 @@ class $$DriftWorkoutSessionsTableTableManager extends RootTableManager<
             Value<DateTime?> endTime = const Value.absent(),
             Value<bool> isCompleted = const Value.absent(),
             Value<int?> dayType = const Value.absent(),
+            Value<String?> posturalWarning = const Value.absent(),
+            Value<String?> posturalWarningReason = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               DriftWorkoutSessionsCompanion.insert(
@@ -2000,6 +2134,8 @@ class $$DriftWorkoutSessionsTableTableManager extends RootTableManager<
             endTime: endTime,
             isCompleted: isCompleted,
             dayType: dayType,
+            posturalWarning: posturalWarning,
+            posturalWarningReason: posturalWarningReason,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

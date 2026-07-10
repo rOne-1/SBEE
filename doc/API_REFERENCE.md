@@ -177,8 +177,16 @@ const WorkoutSession({
   List<WorkoutSet> sets = const [],
   bool isCompleted = false,
   DayType? dayType,
+  String? posturalWarning,
+  PosturalWarningReason posturalWarningReason = PosturalWarningReason.none,
 });
 ```
+
+### `PosturalWarningReason` (Enum)
+Represents warning reasons corresponding to postural alignment issues flagged during workout generation:
+- `PosturalWarningReason.none`: No postural warning active.
+- `PosturalWarningReason.noPullingAvailable`: Bypassed the 2:1 safety ratio because no pulling exercises were available in the candidate pool.
+- `PosturalWarningReason.historicalDeficit`: The 2:1 ratio is not satisfied due to a historical pull set deficit.
 
 ---
 

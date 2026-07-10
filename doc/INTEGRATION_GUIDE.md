@@ -148,6 +148,7 @@ Future<WorkoutSession> planNextSession(SbeeEngine engine) async {
 - **48-Hour Recovery Gate**: Excludes exercises belonging to movement patterns locked by high-intensity sets logged within the past 48 hours.
 - **Detraining Lockout**: If inactivity is $\ge 14$ days, high-intensity day-types (`veryHeavy`, `power`) are redirected to `moderate`. Strict `4-2-1` tempo constraints and Stabilization cues are added.
 - **Physiological Adjustments**: During early follicular days (1–3), target RPE is reduced by `1` and rest periods are padded by `30` seconds. If `hasKneeDiscomfort` is true, knee alignment cues are added, and lower body sets are given a rep count floor of `12-15` reps.
+- **Postural Balance Generation Enforcement**: Restricts generated pushing sets to satisfy a 2:1 pull-to-push ratio over the sliding 14-day history window. Bypasses push-limiting and flags `noPullingAvailable` if no pulling exercises are in the pool, and flags `historicalDeficit` if the ratio is unsatisfied.
 
 ---
 
@@ -350,6 +351,7 @@ try {
   // Handles invalid parameters, such as invalid exerciseId in the graph
   log('Invalid arguments: ${e.message}');
 }
+```
 
 ---
 

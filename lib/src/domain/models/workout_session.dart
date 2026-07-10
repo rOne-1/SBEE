@@ -66,6 +66,12 @@ class WorkoutSet {
   }
 }
 
+enum PosturalWarningReason {
+  none,
+  noPullingAvailable,
+  historicalDeficit,
+}
+
 /// Represents a workout session containing multiple exercise sets.
 class WorkoutSession {
   final String id;
@@ -74,6 +80,8 @@ class WorkoutSession {
   final List<WorkoutSet> sets;
   final bool isCompleted;
   final DayType? dayType; // Null if not scheduled or custom
+  final String? posturalWarning;
+  final PosturalWarningReason posturalWarningReason;
 
   const WorkoutSession({
     required this.id,
@@ -82,6 +90,8 @@ class WorkoutSession {
     this.sets = const [],
     this.isCompleted = false,
     this.dayType,
+    this.posturalWarning,
+    this.posturalWarningReason = PosturalWarningReason.none,
   });
 
   WorkoutSession copyWith({
@@ -91,6 +101,8 @@ class WorkoutSession {
     List<WorkoutSet>? sets,
     bool? isCompleted,
     DayType? dayType,
+    String? posturalWarning,
+    PosturalWarningReason? posturalWarningReason,
   }) {
     return WorkoutSession(
       id: id ?? this.id,
@@ -99,6 +111,8 @@ class WorkoutSession {
       sets: sets ?? this.sets,
       isCompleted: isCompleted ?? this.isCompleted,
       dayType: dayType ?? this.dayType,
+      posturalWarning: posturalWarning ?? this.posturalWarning,
+      posturalWarningReason: posturalWarningReason ?? this.posturalWarningReason,
     );
   }
 }

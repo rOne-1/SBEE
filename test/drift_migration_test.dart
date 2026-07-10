@@ -5,11 +5,11 @@ import 'package:sbee/sbee.dart';
 
 void main() {
   group('Drift Database Migration Tests', () {
-    test('Upgrade path from schema version 1 to 2 runs successfully', () async {
+    test('Upgrade path from schema version 1 to 3 runs successfully', () async {
       // 1. Open a raw in-memory sqlite3 database
       final rawDb = sqlite3.openInMemory();
 
-      // 2. Setup Version 1 Schema (lacks day_type, rest_duration_seconds, cues_json columns and indexes)
+      // 2. Setup Version 1 Schema (lacks day_type, rest_duration_seconds, cues_json, postural_warning, postural_warning_reason and indexes)
       rawDb.execute('''
         CREATE TABLE drift_workout_sessions (
           id TEXT NOT NULL PRIMARY KEY,
@@ -65,8 +65,10 @@ void main() {
       var columns = rawDb.select('PRAGMA table_info(drift_workout_sessions);');
       var columnNames = columns.map((row) => row['name'] as String).toList();
       expect(columnNames, isNot(contains('day_type')));
+      expect(columnNames, isNot(contains('postural_warning')));
+      expect(columnNames, isNot(contains('postural_warning_reason')));
 
-      // 3. Initialize SbeeDatabase (runs onUpgrade from 1 to 2)
+      // 3. Initialize SbeeDatabase (runs onUpgrade from 1 to 3)
       final db = SbeeDatabase(NativeDatabase.opened(rawDb));
       
       // Let's force db open and migration execution by running a simple query
@@ -76,25 +78,29 @@ void main() {
       columns = rawDb.select('PRAGMA table_info(drift_workout_sessions);');
       columnNames = columns.map((row) => row['name'] as String).toList();
       expect(columnNames, contains('day_type'));
+      expect(columnNames, contains('postural_warning'));
+      expect(columnNames, contains('postural_warning_reason'));
 
       columns = rawDb.select('PRAGMA table_info(drift_workout_sets);');
       columnNames = columns.map((row) => row['name'] as String).toList();
       expect(columnNames, contains('rest_duration_seconds'));
       expect(columnNames, contains('cues_json'));
 
-      // 5. Test inserts and reads into the version 2 columns via repositories
+      // 5. Test inserts and reads into the version 3 columns via repositories
       final sessionRepo = DriftSessionRepository(db);
       final now = DateTime.now();
       final testSession = WorkoutSession(
-        id: 'session_v2_test',
+        id: 'session_v3_test',
         startTime: now,
         endTime: now.add(const Duration(minutes: 30)),
         isCompleted: true,
         dayType: DayType.veryHeavy,
+        posturalWarning: 'Historical deficit warning',
+        posturalWarningReason: PosturalWarningReason.historicalDeficit,
         sets: [
           WorkoutSet(
-            id: 'set_v2_test',
-            sessionId: 'session_v2_test',
+            id: 'set_v3_test',
+            sessionId: 'session_v3_test',
             exerciseId: 'ex_test',
             movementPattern: MovementPattern.pushing,
             setNumber: 1,
@@ -110,9 +116,11 @@ void main() {
 
       await sessionRepo.saveSession(testSession);
 
-      final retrieved = await sessionRepo.getSession('session_v2_test');
+      final retrieved = await sessionRepo.getSession('session_v3_test');
       expect(retrieved, isNotNull);
       expect(retrieved!.dayType, equals(DayType.veryHeavy));
+      expect(retrieved.posturalWarning, equals('Historical deficit warning'));
+      expect(retrieved.posturalWarningReason, equals(PosturalWarningReason.historicalDeficit));
       expect(retrieved.sets.length, equals(1));
       expect(retrieved.sets.first.restDuration, equals(const Duration(seconds: 45)));
       expect(retrieved.sets.first.cues, contains('Test Cue 1'));

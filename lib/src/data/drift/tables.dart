@@ -8,6 +8,8 @@ class DriftWorkoutSessions extends Table {
   DateTimeColumn get endTime => dateTime().nullable()();
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   IntColumn get dayType => integer().nullable()();
+  TextColumn get posturalWarning => text().nullable()();
+  TextColumn get posturalWarningReason => text().nullable()(); // Storing enum name as text to avoid integer reordering issues
 
   @override
   Set<Column> get primaryKey => {id};

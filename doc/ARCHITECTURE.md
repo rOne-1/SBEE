@@ -130,13 +130,15 @@ Workout session execution transitions are non-linear but highly constrained. To 
 
 This state transition logic is strictly isolated from UI rendering and exposed through a reactive stream.
 
-### C. Reactive Pipeline via RxDart
-The [SessionStreamManager](../lib/src/engine/session_stream.dart) manages active session state streams using RxDart's `BehaviorSubject`. 
+### D. Postural Balance Generation Enforcement
+To ensure musculoskeletal health and postural alignment, SBEE enforces a strict 2:1 pull-to-push set ratio over a sliding 14-day window during workout generation:
 
-The host application wires widgets directly to the stream. Any state transition triggers a new immutable `SessionProgressState` broadcast, containing:
-1. The active `WorkoutSession` snapshot with logged reps/RPE.
-2. The current `SessionState` of the workout.
-3. The zero-indexed current set index being executed.
+- **2:1 Ratio Validation**: The engine queries the 14-day history of completed sets and sums it with the new candidate session sets. A pushing exercise is only selected if:
+  $$H_{\text{pull}} + N_{\text{pull}} \ge 2 \times (H_{\text{push}} + N_{\text{push}} + \text{setsCount})$$
+  Where $H$ represents historical sets and $N$ represents newly proposed sets in the session. Pushing exercises are shuffled and evaluated sequentially.
+- **Fallback Rule**: If no pulling exercises are available in the candidate pool but pushing exercises are present, the engine bypasses the push-limiting safety rule to generate pushing exercises anyway. In this scenario, it flags a `posturalWarning` on the session with `PosturalWarningReason.noPullingAvailable`.
+- **Historical Deficits**: If the combined sets do not satisfy the 2:1 ratio (due to an uncorrectable historical deficit where no new pushes can be generated or during the fallback), the session is marked with `PosturalWarningReason.historicalDeficit`.
+- **Scaling Considerations**: Unconditionally including all pulling and other exercises in the final workout session are known scaling points, which may require introducing size limits or exercise caps for larger exercise catalogs in the future.
 
 ---
 

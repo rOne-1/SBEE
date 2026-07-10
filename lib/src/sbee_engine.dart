@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'domain/models/day_type.dart';
 import 'domain/models/equipment.dart';
 import 'domain/models/exercise.dart';
@@ -202,23 +203,113 @@ class SbeeEngine {
       filteredExercises.add(exercise);
     }
 
-    // 5. Construct WorkoutSession.
+    // 5. Calculate H_pull and H_push from the 14-day history.
+    final completedSessions14d = completedSessions
+        .where((s) => s.startTime.isAfter(currentTime.subtract(const Duration(days: 14))))
+        .toList();
+    final historySets = completedSessions14d.expand((s) => s.sets).toList();
+
+    final H_pull = historySets.where((s) => s.movementPattern == MovementPattern.pulling).length;
+    final H_push = historySets.where((s) => s.movementPattern == MovementPattern.pushing).length;
+
+    // Helper to calculate sets count for an exercise.
+    int calculateExerciseSetsCount(Exercise exercise) {
+      var count = 4;
+      if (isDeload) {
+        count = (count / 2).ceil();
+      }
+      if (femaleProfile != null) {
+        count = FemalePhysiologyWrapper.adjustMinSets(originalMinSets: count, profile: femaleProfile);
+      }
+      return count;
+    }
+
+    // Group exercises by pattern.
+    final pullingExercises = <Exercise>[];
+    final pushingExercises = <Exercise>[];
+    final otherExercises = <Exercise>[];
+
+    for (final ex in filteredExercises) {
+      if (ex.movementPattern == MovementPattern.pulling) {
+        pullingExercises.add(ex);
+      } else if (ex.movementPattern == MovementPattern.pushing) {
+        pushingExercises.add(ex);
+      } else {
+        otherExercises.add(ex);
+      }
+    }
+
+    // Sum total new pulling sets N_pull.
+    var N_pull = 0;
+    for (final ex in pullingExercises) {
+      N_pull += calculateExerciseSetsCount(ex);
+    }
+
+    // Shuffle the pushing exercises list deterministically to promote variety.
+    final shuffledPushing = List<Exercise>.from(pushingExercises);
+    shuffledPushing.shuffle(Random(currentTime.millisecondsSinceEpoch));
+
+    final selectedPushing = <Exercise>[];
+    var N_push = 0;
+
+    String? posturalWarning;
+    PosturalWarningReason posturalWarningReason = PosturalWarningReason.none;
+
+    final fallbackNoPulling = pullingExercises.isEmpty && pushingExercises.isNotEmpty;
+
+    if (fallbackNoPulling) {
+      // Generate pushing exercises anyway
+      selectedPushing.addAll(shuffledPushing);
+      for (final ex in shuffledPushing) {
+        N_push += calculateExerciseSetsCount(ex);
+      }
+      posturalWarning = 'Postural warning: Pushing exercises generated without sufficient pulling options (2:1 ratio not satisfied).';
+      posturalWarningReason = PosturalWarningReason.noPullingAvailable;
+    } else {
+      // Select pushing exercises sequentially checking the 2:1 postural balance ratio
+      for (final ex in shuffledPushing) {
+        final setsCount = calculateExerciseSetsCount(ex);
+        if (H_pull + N_pull >= 2 * (H_push + N_push + setsCount)) {
+          selectedPushing.add(ex);
+          N_push += setsCount;
+        }
+      }
+    }
+
+    // Construct final list of exercises maintaining original order where applicable.
+    // SCALING CONSIDERATION: Unconditional inclusion of all pulling exercises is a known scaling consideration for future large-scale catalogs.
+    // SCALING CONSIDERATION: Unconditional inclusion of all other-pattern exercises is also a scaling consideration if an exercise-per-session cap is introduced in the future.
+    final finalExercises = <Exercise>[];
+    for (final ex in filteredExercises) {
+      if (ex.movementPattern == MovementPattern.pulling) {
+        finalExercises.add(ex);
+      } else if (ex.movementPattern == MovementPattern.pushing) {
+        if (selectedPushing.contains(ex)) {
+          finalExercises.add(ex);
+        }
+      } else {
+        finalExercises.add(ex);
+      }
+    }
+
+    // Verify 2:1 ratio (combined history + session)
+    if (posturalWarningReason == PosturalWarningReason.none) {
+      if ((H_pull + N_pull) < 2 * (H_push + N_push)) {
+        posturalWarning = 'Postural warning: 2:1 pull-to-push ratio not satisfied due to historical deficit.';
+        posturalWarningReason = PosturalWarningReason.historicalDeficit;
+      }
+    }
+
+    // 6. Construct WorkoutSession.
     final sessionId = 'session_${currentTime.millisecondsSinceEpoch}';
     final sets = <WorkoutSet>[];
     var setGlobalId = 1;
 
-    for (final exercise in filteredExercises) {
+    for (final exercise in finalExercises) {
       final prog = await progressionRepository.getProgression(exercise.id);
       final vars = prog?.variables ?? const MillerVariables(load: 1, bodyPosition: 1, rom: 1, height: 1, tempo: 1);
 
-      // Determine volume (set count): Apply 50% reduction if deload is active. Apply 3-set floor if age >= 45.
-      var setsCount = 4;
-      if (isDeload) {
-        setsCount = (setsCount / 2).ceil();
-      }
-      if (femaleProfile != null) {
-        setsCount = FemalePhysiologyWrapper.adjustMinSets(originalMinSets: setsCount, profile: femaleProfile);
-      }
+      final setsCount = calculateExerciseSetsCount(exercise);
 
       // Generate WorkoutSets. If deload is active, cap targetRpe at 6.
       var targetRpeForSet = 8;
@@ -270,6 +361,8 @@ class SbeeEngine {
       isCompleted: false,
       sets: sets,
       dayType: dayType,
+      posturalWarning: posturalWarning,
+      posturalWarningReason: posturalWarningReason,
     );
   }
 
