@@ -4,7 +4,7 @@ import '../domain/models/workout_session.dart';
 /// Implements Undulating Periodization scheduling and deload rules.
 class PeriodizationScheduler {
   /// Determines the next [DayType] based on the user's completed session history.
-  /// 
+  ///
   /// Enforces that all 5 day-types are cycled through within any 14-day window
   /// by rotating through them in a deterministic order:
   /// moderate -> veryHeavy -> power -> veryLight -> highLactic.
@@ -43,7 +43,7 @@ class PeriodizationScheduler {
   }
 
   /// Determines if a deload week is currently active.
-  /// 
+  ///
   /// A deload week is mandatory every 4-6 weeks. This implementation uses a 5-week macrocycle,
   /// where the 5th week (weeks 4, 9, 14, ...) is scheduled as a deload week.
   static bool isDeloadActive({
@@ -55,10 +55,10 @@ class PeriodizationScheduler {
     // Sort sessions by start time to find the start of the training program.
     final sorted = List<WorkoutSession>.from(completedSessions)
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
-    
+
     final programStart = sorted.first.startTime;
     final daysElapsed = currentTime.difference(programStart).inDays;
-    
+
     if (daysElapsed < 0) return false;
 
     final currentWeekIndex = daysElapsed ~/ 7;
@@ -67,7 +67,7 @@ class PeriodizationScheduler {
   }
 
   /// Applies deload constraints to a workout session if active.
-  /// 
+  ///
   /// Deload constraints:
   /// - Reduces volume (sets) by 50% (rounded up, minimum 1 set).
   /// - Limits target RPE of all sets to a maximum of 6.

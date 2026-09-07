@@ -55,7 +55,7 @@ class SbeeEngine {
   });
 
   /// Logs a set's execution, evaluates target RPE, and adjusts MillerVariables.
-  /// 
+  ///
   /// **DAG Progression/Regression Traversal Logic**:
   /// - If the new variables reach max limit (`load=5, bodyPosition=5, rom=5, height=5, tempo=2`)
   ///   and RPE continues to report as under-stimulated, the engine queries the `exerciseGraph` for successors,
@@ -77,37 +77,37 @@ class SbeeEngine {
 
     // 1. Fetch current progression state.
     var prog = await progressionRepository.getProgression(exerciseId);
-    if (prog == null) {
-      prog = ExerciseProgression(
-        exerciseId: exerciseId,
-        variables: const MillerVariables(load: 1, bodyPosition: 1, rom: 1, height: 1, tempo: 1),
-        competencyLevel: 1,
-        lastPerformed: DateTime.now(),
-      );
-    }
+    prog ??= ExerciseProgression(
+      exerciseId: exerciseId,
+      variables: const MillerVariables(
+          load: 1, bodyPosition: 1, rom: 1, height: 1, tempo: 1),
+      competencyLevel: 1,
+      lastPerformed: DateTime.now(),
+    );
 
     // 2. Pre-process targetRpe using FemalePhysiologyWrapper.adjustTargetRpe if femaleProfile is active.
     final adjustedTarget = femaleProfile != null
-        ? FemalePhysiologyWrapper.adjustTargetRpe(originalTargetRpe: targetRpe, profile: femaleProfile)
+        ? FemalePhysiologyWrapper.adjustTargetRpe(
+            originalTargetRpe: targetRpe, profile: femaleProfile)
         : targetRpe;
 
     // 2.5. Derive this exercise's competency level from its completed-set history.
     // Monotonic: a competency level, once reached, is never lowered by this check.
-    final loggedSets = await sessionRepository.getSetsInDateRange(DateTime(1970), DateTime.now());
-    final completedSetCount = loggedSets
-        .where((s) => s.exerciseId == exerciseId && s.reportedRpe != null)
-        .length;
+    final completedSetCount =
+        await sessionRepository.getReportedSetCountForExercise(exerciseId);
     var derivedCompetencyLevel = 1;
     if (completedSetCount >= competencyAdvancedSetThreshold) {
       derivedCompetencyLevel = 3;
     } else if (completedSetCount >= competencyIntermediateSetThreshold) {
       derivedCompetencyLevel = 2;
     }
-    final newCompetencyLevel =
-        derivedCompetencyLevel > prog.competencyLevel ? derivedCompetencyLevel : prog.competencyLevel;
+    final newCompetencyLevel = derivedCompetencyLevel > prog.competencyLevel
+        ? derivedCompetencyLevel
+        : prog.competencyLevel;
 
     // 3. Query Intermediate status date via progressionRepository. If achieved > 21 days ago, set isAdvancedTempoUnlocked = true.
-    final intermediateDate = await progressionRepository.getStatusAchievedDate('Intermediate');
+    final intermediateDate =
+        await progressionRepository.getStatusAchievedDate('Intermediate');
     final bool isAdvancedTempoUnlocked = intermediateDate != null &&
         DateTime.now().difference(intermediateDate).inDays >= 21;
 
@@ -125,22 +125,24 @@ class SbeeEngine {
         nextVars.rom == 5 &&
         nextVars.height == 5 &&
         nextVars.tempo == 2;
-    
+
     final isMinLimit = nextVars.load == 1 &&
         nextVars.bodyPosition == 1 &&
         nextVars.rom == 1 &&
         nextVars.height == 1 &&
         nextVars.tempo == 1;
 
-    final action = AutoregulationEngine.evaluate(reportedRpe: reportedRpe, targetRpe: adjustedTarget);
+    final action = AutoregulationEngine.evaluate(
+        reportedRpe: reportedRpe, targetRpe: adjustedTarget);
 
     if (isMaxLimit && action == AutoregulationAction.increment) {
       // Trigger progression to successors
       final successors = exerciseGraph.getProgressions(currentExercise);
       if (successors.isNotEmpty) {
         final nextExercise = successors.first;
-        final baseVars = const MillerVariables(load: 1, bodyPosition: 1, rom: 1, height: 1, tempo: 1);
-        
+        const baseVars = MillerVariables(
+            load: 1, bodyPosition: 1, rom: 1, height: 1, tempo: 1);
+
         final newProg = ExerciseProgression(
           exerciseId: nextExercise.id,
           variables: baseVars,
@@ -167,7 +169,8 @@ class SbeeEngine {
       final predecessors = exerciseGraph.getRegressions(currentExercise);
       if (predecessors.isNotEmpty) {
         final prevExercise = predecessors.first;
-        final maxVars = const MillerVariables(load: 5, bodyPosition: 5, rom: 5, height: 5, tempo: 2);
+        const maxVars = MillerVariables(
+            load: 5, bodyPosition: 5, rom: 5, height: 5, tempo: 2);
 
         final newProg = ExerciseProgression(
           exerciseId: prevExercise.id,
@@ -203,41 +206,66 @@ class SbeeEngine {
     required Set<Equipment> availableEquipment,
     FemaleProfile? femaleProfile,
   }) async {
-    // 1. Retrieve completed sessions.
-    // Querying since epoch (1970) to retrieve all historical data.
-    final completedSessions = await sessionRepository
-        .getSessionsInDateRange(DateTime(1970), currentTime)
-        .then((list) => list.where((s) => s.isCompleted).toList());
+    // 1. Fetch the program start date once; shared by the Intermediate-status check below
+    // and the deload calculation in step 3 (both only ever need the earliest session's date).
+    final programStart =
+        await sessionRepository.getEarliestCompletedSessionStart();
 
     // 1.5. Auto-detect whole-account "Intermediate" status (idempotent: written once).
     // Feeds the 21-day advanced-tempo unlock gate checked in logSetPerformance.
-    if (completedSessions.length >= intermediateStatusSessionThreshold) {
-      final existingIntermediateDate = await progressionRepository.getStatusAchievedDate('Intermediate');
+    // Uses targeted count/earliest-date queries rather than fetching full history.
+    final completedSessionCount =
+        await sessionRepository.getCompletedSessionCount();
+    if (completedSessionCount >= intermediateStatusSessionThreshold &&
+        programStart != null) {
+      final existingIntermediateDate =
+          await progressionRepository.getStatusAchievedDate('Intermediate');
       if (existingIntermediateDate == null) {
-        final sortedByStart = List<WorkoutSession>.from(completedSessions)
-          ..sort((a, b) => a.startTime.compareTo(b.startTime));
-        final daysSinceFirstSession = currentTime.difference(sortedByStart.first.startTime).inDays;
+        final daysSinceFirstSession =
+            currentTime.difference(programStart).inDays;
         if (daysSinceFirstSession >= intermediateStatusMinDays) {
-          await progressionRepository.saveStatusAchievedDate('Intermediate', currentTime);
+          await progressionRepository.saveStatusAchievedDate(
+              'Intermediate', currentTime);
         }
       }
     }
 
     // 2. Determine DayType. Apply detraining lock if inactivity >= 14 days (moderate redirect).
-    var dayType = PeriodizationScheduler.getNextDayType(completedSessions);
+    // PeriodizationScheduler/DetrainingLogic take a List<WorkoutSession> to stay decoupled from
+    // any specific repository; passing a single targeted, indexed-query result (rather than the
+    // full session history) into a 1-element list is behaviorally exact here: getNextDayType only
+    // ever looks for the single most recent completed session with a dayType, and
+    // isDetrainingActive only ever looks for the single most recent completed session overall.
+    final mostRecentWithDayType = await sessionRepository
+        .getMostRecentCompletedSession(requireDayType: true);
+    var dayType = PeriodizationScheduler.getNextDayType(
+        mostRecentWithDayType != null ? [mostRecentWithDayType] : const []);
+
+    final mostRecentCompleted =
+        await sessionRepository.getMostRecentCompletedSession();
     final isDetrained = DetrainingLogic.isDetrainingActive(
-      completedSessions: completedSessions,
+      completedSessions:
+          mostRecentCompleted != null ? [mostRecentCompleted] : const [],
       currentTime: currentTime,
     );
-    if (isDetrained && (dayType == DayType.veryHeavy || dayType == DayType.power)) {
+    if (isDetrained &&
+        (dayType == DayType.veryHeavy || dayType == DayType.power)) {
       dayType = DayType.moderate; // Redirect
     }
 
-    // 3. Resolve if Deload week is active.
-    final isDeload = PeriodizationScheduler.isDeloadActive(
-      completedSessions: completedSessions,
-      currentTime: currentTime,
-    );
+    // 3. Resolve if Deload week is active. isDeloadActive only ever reads the earliest session's
+    // startTime (the program's start date, already fetched in step 1), so a minimal carrier
+    // WorkoutSession (only startTime is read) avoids fetching full session history.
+    final isDeload = programStart != null &&
+        PeriodizationScheduler.isDeloadActive(
+          completedSessions: [
+            WorkoutSession(
+                id: '_program_start_marker',
+                startTime: programStart,
+                isCompleted: true)
+          ],
+          currentTime: currentTime,
+        );
 
     // 3.5. Resolve the DayType's locked reps/RPE/setsCount prescription once.
     final prescription = DayTypePrescription.forDayType(dayType);
@@ -252,7 +280,8 @@ class SbeeEngine {
     final filteredExercises = <Exercise>[];
     for (final exercise in exerciseGraph.exercises) {
       // Equipment check
-      final hasEquipment = exercise.equipmentRequirements.every((req) => availableEquipment.contains(req));
+      final hasEquipment = exercise.equipmentRequirements
+          .every((req) => availableEquipment.contains(req));
       if (!hasEquipment) continue;
 
       // 48h Recovery Lock check
@@ -273,14 +302,24 @@ class SbeeEngine {
       filteredExercises.add(exercise);
     }
 
-    // 5. Calculate H_pull and H_push from the 14-day history.
-    final completedSessions14d = completedSessions
-        .where((s) => s.startTime.isAfter(currentTime.subtract(const Duration(days: 14))))
-        .toList();
+    // 5. Calculate H_pull and H_push from the 14-day history. Queried directly with a bounded
+    // 14-day range rather than filtering an already-fetched full history (there is no full
+    // history fetch left in this method at all as of the query-scaling fix).
+    final completedSessions14d =
+        (await sessionRepository.getSessionsInDateRange(
+      currentTime.subtract(const Duration(days: 14)),
+      currentTime,
+    ))
+            .where((s) => s.isCompleted)
+            .toList();
     final historySets = completedSessions14d.expand((s) => s.sets).toList();
 
-    final H_pull = historySets.where((s) => s.movementPattern == MovementPattern.pulling).length;
-    final H_push = historySets.where((s) => s.movementPattern == MovementPattern.pushing).length;
+    final hPull = historySets
+        .where((s) => s.movementPattern == MovementPattern.pulling)
+        .length;
+    final hPush = historySets
+        .where((s) => s.movementPattern == MovementPattern.pushing)
+        .length;
 
     // Helper to calculate sets count for an exercise. Base count comes from the
     // DayType's prescription (see DayTypePrescription.setsCount); deload and the
@@ -291,7 +330,8 @@ class SbeeEngine {
         count = (count / 2).ceil();
       }
       if (femaleProfile != null) {
-        count = FemalePhysiologyWrapper.adjustMinSets(originalMinSets: count, profile: femaleProfile);
+        count = FemalePhysiologyWrapper.adjustMinSets(
+            originalMinSets: count, profile: femaleProfile);
       }
       return count;
     }
@@ -312,9 +352,9 @@ class SbeeEngine {
     }
 
     // Sum total new pulling sets N_pull.
-    var N_pull = 0;
+    var nPull = 0;
     for (final ex in pullingExercises) {
-      N_pull += calculateExerciseSetsCount(ex);
+      nPull += calculateExerciseSetsCount(ex);
     }
 
     // Shuffle the pushing exercises list deterministically to promote variety.
@@ -322,28 +362,30 @@ class SbeeEngine {
     shuffledPushing.shuffle(Random(currentTime.millisecondsSinceEpoch));
 
     final selectedPushing = <Exercise>[];
-    var N_push = 0;
+    var nPush = 0;
 
     String? posturalWarning;
     PosturalWarningReason posturalWarningReason = PosturalWarningReason.none;
 
-    final fallbackNoPulling = pullingExercises.isEmpty && pushingExercises.isNotEmpty;
+    final fallbackNoPulling =
+        pullingExercises.isEmpty && pushingExercises.isNotEmpty;
 
     if (fallbackNoPulling) {
       // Generate pushing exercises anyway
       selectedPushing.addAll(shuffledPushing);
       for (final ex in shuffledPushing) {
-        N_push += calculateExerciseSetsCount(ex);
+        nPush += calculateExerciseSetsCount(ex);
       }
-      posturalWarning = 'Postural warning: Pushing exercises generated without sufficient pulling options (2:1 ratio not satisfied).';
+      posturalWarning =
+          'Postural warning: Pushing exercises generated without sufficient pulling options (2:1 ratio not satisfied).';
       posturalWarningReason = PosturalWarningReason.noPullingAvailable;
     } else {
       // Select pushing exercises sequentially checking the 2:1 postural balance ratio
       for (final ex in shuffledPushing) {
         final setsCount = calculateExerciseSetsCount(ex);
-        if (H_pull + N_pull >= 2 * (H_push + N_push + setsCount)) {
+        if (hPull + nPull >= 2 * (hPush + nPush + setsCount)) {
           selectedPushing.add(ex);
-          N_push += setsCount;
+          nPush += setsCount;
         }
       }
     }
@@ -366,8 +408,9 @@ class SbeeEngine {
 
     // Verify 2:1 ratio (combined history + session)
     if (posturalWarningReason == PosturalWarningReason.none) {
-      if ((H_pull + N_pull) < 2 * (H_push + N_push)) {
-        posturalWarning = 'Postural warning: 2:1 pull-to-push ratio not satisfied due to historical deficit.';
+      if ((hPull + nPull) < 2 * (hPush + nPush)) {
+        posturalWarning =
+            'Postural warning: 2:1 pull-to-push ratio not satisfied due to historical deficit.';
         posturalWarningReason = PosturalWarningReason.historicalDeficit;
       }
     }
@@ -379,7 +422,9 @@ class SbeeEngine {
 
     for (final exercise in finalExercises) {
       final prog = await progressionRepository.getProgression(exercise.id);
-      final vars = prog?.variables ?? const MillerVariables(load: 1, bodyPosition: 1, rom: 1, height: 1, tempo: 1);
+      final vars = prog?.variables ??
+          const MillerVariables(
+              load: 1, bodyPosition: 1, rom: 1, height: 1, tempo: 1);
 
       final setsCount = calculateExerciseSetsCount(exercise);
 
@@ -406,7 +451,9 @@ class SbeeEngine {
         setMinReps = emomReps;
         setMaxReps = emomReps;
         targetRpeForSet = prescription.targetRpe;
-        dayTypeCues = ['EMOM Structure: Complete $emomReps reps at the top of each minute.'];
+        dayTypeCues = [
+          'EMOM Structure: Complete $emomReps reps at the top of each minute.'
+        ];
       } else {
         setReps = prescription.reps;
         setMinReps = prescription.minReps;
@@ -419,10 +466,13 @@ class SbeeEngine {
         targetRpeForSet = 6;
       }
       if (femaleProfile != null) {
-        targetRpeForSet = FemalePhysiologyWrapper.adjustTargetRpe(originalTargetRpe: targetRpeForSet, profile: femaleProfile);
+        targetRpeForSet = FemalePhysiologyWrapper.adjustTargetRpe(
+            originalTargetRpe: targetRpeForSet, profile: femaleProfile);
       }
 
-      final trainingFocus = (dayType == DayType.power || dayType == DayType.highLactic || dayType == DayType.veryLight)
+      final trainingFocus = (dayType == DayType.power ||
+              dayType == DayType.highLactic ||
+              dayType == DayType.veryLight)
           ? 'conditioning'
           : 'strength';
 
@@ -437,7 +487,8 @@ class SbeeEngine {
 
       // Append pelvic/spine safety cues and joint check flags to set instructions.
       final baseCues = femaleProfile != null
-          ? FemalePhysiologyWrapper.getCorrectiveCues(exerciseName: exercise.name, profile: femaleProfile)
+          ? FemalePhysiologyWrapper.getCorrectiveCues(
+              exerciseName: exercise.name, profile: femaleProfile)
           : exercise.defaultCues;
       final cues = [...baseCues, ...dayTypeCues];
 
@@ -502,11 +553,30 @@ class SbeeEngine {
   }
 
   /// Creates and initializes a session state machine pipeline for active session tracking.
+  /// The returned manager persists progress incrementally after every set is logged
+  /// (see [SessionStreamManager]'s own docs), so a crash mid-workout can be recovered
+  /// from via [resumeActiveSession] rather than losing all progress on the session.
   SessionStreamManager createWorkoutSession({
     required WorkoutSession session,
   }) {
-    final manager = SessionStreamManager();
+    final manager = SessionStreamManager(sessionRepository: sessionRepository);
     manager.initializeSession(session);
+    return manager;
+  }
+
+  /// Checks for a workout session left incomplete (e.g. after a crash, force-quit, or
+  /// killed background process) and, if one exists, reconstructs a [SessionStreamManager]
+  /// resumed at the correct point (the next unlogged set, or [SessionState.coolDown] if
+  /// every set was already logged before the interruption). Returns `null` if there is
+  /// no incomplete session to resume.
+  ///
+  /// Call this once at host-app startup, before offering the user a "start a new workout"
+  /// action, so an interrupted session isn't silently discarded.
+  Future<SessionStreamManager?> resumeActiveSession() async {
+    final incomplete = await sessionRepository.getActiveIncompleteSession();
+    if (incomplete == null) return null;
+    final manager = SessionStreamManager(sessionRepository: sessionRepository);
+    manager.resumeSession(incomplete);
     return manager;
   }
 }

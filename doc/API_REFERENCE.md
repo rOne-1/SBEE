@@ -62,11 +62,17 @@ Future<bool> validatePosturalBalance({
 ```
 
 #### `createWorkoutSession`
-Creates and initializes an active session stream state manager using the given session.
+Creates and initializes an active session stream state manager using the given session. The returned manager persists progress incrementally as sets are logged (see `SessionStreamManager`), so a crash mid-workout can be recovered via `resumeActiveSession`.
 ```dart
 SessionStreamManager createWorkoutSession({
   required WorkoutSession session,
 });
+```
+
+#### `resumeActiveSession`
+Checks for a workout session left incomplete (e.g. after a crash, force-quit, or killed background process) and, if one exists, returns a `SessionStreamManager` resumed at the correct point. Returns `null` if there is nothing to resume. Call once at host-app startup before offering a "start a new workout" action.
+```dart
+Future<SessionStreamManager?> resumeActiveSession();
 ```
 
 ---
@@ -386,9 +392,14 @@ The read-only state snapshot emitted by the session manager.
 
 ### `SessionStreamManager` (Class)
 Orchestrates the active workout session, driving changes via an internal state machine and piping updates reactively.
+```dart
+SessionStreamManager({SessionRepository? sessionRepository});
+```
+- **`sessionRepository`** (optional): when supplied, the manager persists the session (fire-and-forget; write errors are swallowed rather than crashing the FSM) after `initializeSession` and every `logCurrentSet`, enabling crash recovery via `resumeSession`/`SbeeEngine.resumeActiveSession`.
 - `Stream<SessionProgressState> get progressStream`: The reactive stream of session progress.
 - `SessionProgressState get currentState`: Synchronous getter for the current state snapshot.
 - `void initializeSession(WorkoutSession session)`: Sets up state and starts at `warmUp`.
+- `void resumeSession(WorkoutSession incompleteSession)`: Reconstructs the manager from a previously-incomplete session (as returned by `SessionRepository.getActiveIncompleteSession()`), restoring the FSM and current-set index to the next unlogged set (or `coolDown` if every set was already logged). Does not modify or re-timestamp already-logged sets. Throws `StateError` if a session is already active.
 - `void startWorkout()`: Transition from `warmUp` to `activeSet`.
 - `void logCurrentSet({required int reps, required int reportedRpe})`: Records performance on the current set, transitioning to `rest` (or `coolDown` if it is the final set).
 - `void startNextSet()`: Transition from `rest` to `activeSet` and increments the set index.
@@ -414,6 +425,14 @@ Saves completed workouts and provides query methods for safety validation.
 - `Future<List<WorkoutSession>> getSessionsInDateRange(DateTime start, DateTime end)`
 - `Future<List<WorkoutSet>> getSetsForMovementPattern(MovementPattern pattern, DateTime since)`
 - `Future<List<WorkoutSet>> getSetsInDateRange(DateTime start, DateTime end)`
+- `Future<WorkoutSession?> getMostRecentCompletedSession({bool requireDayType = false})`: The single most recently-started completed session, or `null`. If `requireDayType` is `true`, only considers sessions that also have a non-null `dayType`.
+- `Future<DateTime?> getEarliestCompletedSessionStart()`: The start time of the earliest completed session (the training program's start date), or `null`.
+- `Future<int> getCompletedSessionCount()`: Total count of completed sessions.
+- `Future<int> getReportedSetCountForExercise(String exerciseId)`: Count of logged sets (`reportedRpe != null`) for a specific exercise, across all sessions regardless of the parent session's completion status.
+- `Future<WorkoutSession?> getActiveIncompleteSession()`: The single most recently-started incomplete (`isCompleted == false`) session, or `null`. Used to detect and resume a workout left in progress after a crash or restart.
+
+> [!NOTE]
+> The five methods above exist specifically so implementers (and SBEE's own internal calls) never need to fetch the entire session/set history just to find one recent value or a count — each should be backed by a real bounded/indexed query (e.g. `ORDER BY ... LIMIT 1`, `COUNT(*)`), not a full table scan filtered in application code.
 
 ### Persistence Exceptions
 - **`ProgressionRepositoryException`**: Thrown on write errors, corrupt reads, or constraint violations in the progression repository.

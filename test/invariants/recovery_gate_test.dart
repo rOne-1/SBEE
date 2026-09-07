@@ -13,7 +13,8 @@ void main() {
         if (list.length < 3) continue;
         final rpe = list[0].abs() % 11; // RPE 0 to 10
         final hoursAgo = list[1].abs() % 100; // 0 to 99 hours ago
-        final pattern = MovementPattern.values[list[2].abs() % MovementPattern.values.length];
+        final pattern = MovementPattern
+            .values[list[2].abs() % MovementPattern.values.length];
 
         sets.add(
           WorkoutSet(
@@ -50,7 +51,8 @@ void main() {
               hours < 48;
         });
 
-        expect(isLocked, equals(expectedLocked), reason: 'Isolation check failed for pattern: $pattern');
+        expect(isLocked, equals(expectedLocked),
+            reason: 'Isolation check failed for pattern: $pattern');
       }
     },
   );

@@ -15,13 +15,20 @@ export 'src/domain/models/workout_session.dart';
 export 'src/engine/miller_variables.dart';
 export 'src/engine/day_type_prescription.dart';
 export 'src/domain/progression/exercise_graph.dart';
-export 'src/domain/repositories/progression_repository.dart' show ExerciseProgression;
+export 'src/domain/repositories/progression_repository.dart'
+    show ExerciseProgression;
 
 // Female physiology wrapper (Direct Export)
-export 'src/engine/female_wrapper.dart' show FemaleProfile, FemalePhysiologyWrapper;
+export 'src/engine/female_wrapper.dart'
+    show FemaleProfile, FemalePhysiologyWrapper;
 
 // Named Intensity Techniques and Structures
-export 'src/engine/intensity_techniques.dart' show IntensityTechniques, ClusterSetsStructure, RestPauseStructure, MyoRepsStructure;
+export 'src/engine/intensity_techniques.dart'
+    show
+        IntensityTechniques,
+        ClusterSetsStructure,
+        RestPauseStructure,
+        MyoRepsStructure;
 
 // Repositories Interfaces
 export 'src/domain/repositories/session_repository.dart';
@@ -29,7 +36,8 @@ export 'src/domain/repositories/progression_repository.dart';
 
 // FSM Session Management
 export 'src/engine/session_state_machine.dart' show SessionState;
-export 'src/engine/session_stream.dart' show SessionStreamManager, SessionProgressState;
+export 'src/engine/session_stream.dart'
+    show SessionStreamManager, SessionProgressState;
 
 // Drift Reference Implementation
 export 'src/data/drift/database.dart' show SbeeDatabase;

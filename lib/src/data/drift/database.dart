@@ -22,8 +22,10 @@ class SbeeDatabase extends _$SbeeDatabase {
           if (from < 2) {
             // Assume v1 lacked the dayType column in DriftWorkoutSessions table, and v2 adds it.
             // Also adds the restDurationSeconds and cuesJson to DriftWorkoutSets table.
-            await m.addColumn(driftWorkoutSessions, driftWorkoutSessions.dayType);
-            await m.addColumn(driftWorkoutSets, driftWorkoutSets.restDurationSeconds);
+            await m.addColumn(
+                driftWorkoutSessions, driftWorkoutSessions.dayType);
+            await m.addColumn(
+                driftWorkoutSets, driftWorkoutSets.restDurationSeconds);
             await m.addColumn(driftWorkoutSets, driftWorkoutSets.cuesJson);
 
             // Create new indexes using generated Index instances
@@ -31,8 +33,10 @@ class SbeeDatabase extends _$SbeeDatabase {
             await m.createIndex(idxWorkoutSetsPatternTime);
           }
           if (from < 3) {
-            await m.addColumn(driftWorkoutSessions, driftWorkoutSessions.posturalWarning);
-            await m.addColumn(driftWorkoutSessions, driftWorkoutSessions.posturalWarningReason);
+            await m.addColumn(
+                driftWorkoutSessions, driftWorkoutSessions.posturalWarning);
+            await m.addColumn(driftWorkoutSessions,
+                driftWorkoutSessions.posturalWarningReason);
           }
           if (from < 4) {
             // Adds the min/max prescribed rep-range columns to DriftWorkoutSets,

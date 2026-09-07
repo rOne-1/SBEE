@@ -47,7 +47,6 @@ class RestPauseStructure {
 
 /// Implements Named High-Intensity Techniques and their validation constraints.
 class IntensityTechniques {
-  
   /// KINESIOLOGIC ANALOGY: Extrapolated from loaded-training research
   /// Cluster Sets divide target reps into mini-sets with 10s intra-set rest.
   static ClusterSetsStructure generateClusterSet({
@@ -137,7 +136,7 @@ class IntensityTechniques {
   }
 
   /// Tabata hybrid progression gate logic.
-  /// 
+  ///
   /// Tabata is 20s work / 10s rest for 8 rounds.
   /// Calendar-day progression is strictly forbidden.
   /// Progression requires:

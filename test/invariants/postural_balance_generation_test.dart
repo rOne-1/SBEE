@@ -1,7 +1,6 @@
 import 'package:glados/glados.dart';
 import 'package:drift/native.dart';
 import 'package:sbee/sbee.dart';
-import 'package:sbee/src/engine/safety_rules.dart';
 
 void main() {
   // Use any.int to drive fuzzed history and exercise pool scenarios
@@ -13,19 +12,50 @@ void main() {
       final progressionRepo = DriftProgressionRepository(database);
 
       // Define exercise candidates
-      final push1 = Exercise(id: 'push1', name: 'Push Ex 1', movementPattern: MovementPattern.pushing, difficultyTier: 1, equipmentRequirements: {});
-      final push2 = Exercise(id: 'push2', name: 'Push Ex 2', movementPattern: MovementPattern.pushing, difficultyTier: 1, equipmentRequirements: {});
-      final pull1 = Exercise(id: 'pull1', name: 'Pull Ex 1', movementPattern: MovementPattern.pulling, difficultyTier: 1, equipmentRequirements: {});
-      final pull2 = Exercise(id: 'pull2', name: 'Pull Ex 2', movementPattern: MovementPattern.pulling, difficultyTier: 1, equipmentRequirements: {});
-      final other1 = Exercise(id: 'other1', name: 'Other Ex 1', movementPattern: MovementPattern.bendAndLift, difficultyTier: 1, equipmentRequirements: {});
-      final other2 = Exercise(id: 'other2', name: 'Other Ex 2', movementPattern: MovementPattern.rotation, difficultyTier: 1, equipmentRequirements: {});
+      const push1 = Exercise(
+          id: 'push1',
+          name: 'Push Ex 1',
+          movementPattern: MovementPattern.pushing,
+          difficultyTier: 1,
+          equipmentRequirements: {});
+      const push2 = Exercise(
+          id: 'push2',
+          name: 'Push Ex 2',
+          movementPattern: MovementPattern.pushing,
+          difficultyTier: 1,
+          equipmentRequirements: {});
+      const pull1 = Exercise(
+          id: 'pull1',
+          name: 'Pull Ex 1',
+          movementPattern: MovementPattern.pulling,
+          difficultyTier: 1,
+          equipmentRequirements: {});
+      const pull2 = Exercise(
+          id: 'pull2',
+          name: 'Pull Ex 2',
+          movementPattern: MovementPattern.pulling,
+          difficultyTier: 1,
+          equipmentRequirements: {});
+      const other1 = Exercise(
+          id: 'other1',
+          name: 'Other Ex 1',
+          movementPattern: MovementPattern.bendAndLift,
+          difficultyTier: 1,
+          equipmentRequirements: {});
+      const other2 = Exercise(
+          id: 'other2',
+          name: 'Other Ex 2',
+          movementPattern: MovementPattern.rotation,
+          difficultyTier: 1,
+          equipmentRequirements: {});
 
       // Randomize which exercises are in the pool
       final exerciseMap = <Exercise, Set<Exercise>>{};
-      
+
       final includePulls = (seed & 1) == 1; // 50% chance of pulls in pool
-      final includePush = (seed & 2) == 2;  // 50% chance of pushes in pool
-      final includeOthers = (seed & 4) == 4; // 50% chance of other exercises in pool
+      final includePush = (seed & 2) == 2; // 50% chance of pushes in pool
+      final includeOthers =
+          (seed & 4) == 4; // 50% chance of other exercises in pool
 
       final pool = <Exercise>[];
       if (includePulls) {
@@ -121,31 +151,47 @@ void main() {
 
       // 1. "Other" pattern exercises are preserved unconditionally
       final generatedOtherIds = session.sets
-          .where((s) => s.movementPattern != MovementPattern.pushing && s.movementPattern != MovementPattern.pulling)
+          .where((s) =>
+              s.movementPattern != MovementPattern.pushing &&
+              s.movementPattern != MovementPattern.pulling)
           .map((s) => s.exerciseId)
           .toSet();
       final expectedOtherIds = pool
-          .where((e) => e.movementPattern != MovementPattern.pushing && e.movementPattern != MovementPattern.pulling)
+          .where((e) =>
+              e.movementPattern != MovementPattern.pushing &&
+              e.movementPattern != MovementPattern.pulling)
           .map((e) => e.id)
           .toSet();
-      expect(generatedOtherIds, equals(expectedOtherIds), reason: 'Other pattern exercises must be unconditionally included');
+      expect(generatedOtherIds, equals(expectedOtherIds),
+          reason: 'Other pattern exercises must be unconditionally included');
 
       // 2. Output correctly flags warning and reason when pool cannot satisfy the ratio (no pulls available)
-      final poolHasPulls = pool.any((e) => e.movementPattern == MovementPattern.pulling);
-      final poolHasPush = pool.any((e) => e.movementPattern == MovementPattern.pushing);
+      final poolHasPulls =
+          pool.any((e) => e.movementPattern == MovementPattern.pulling);
+      final poolHasPush =
+          pool.any((e) => e.movementPattern == MovementPattern.pushing);
 
       if (!poolHasPulls && poolHasPush) {
-        expect(session.posturalWarningReason, equals(PosturalWarningReason.noPullingAvailable));
-        expect(session.posturalWarning, contains('Pushing exercises generated without sufficient pulling options'));
+        expect(session.posturalWarningReason,
+            equals(PosturalWarningReason.noPullingAvailable));
+        expect(
+            session.posturalWarning,
+            contains(
+                'Pushing exercises generated without sufficient pulling options'));
         // Pushing exercises are generated anyway in this fallback
-        final hasPushSets = session.sets.any((s) => s.movementPattern == MovementPattern.pushing);
+        final hasPushSets = session.sets
+            .any((s) => s.movementPattern == MovementPattern.pushing);
         expect(hasPushSets, isTrue);
       }
 
       // 3. Generator-side push-limiting correctly enforces the 2:1 ratio when pulling is available
       if (poolHasPulls) {
-        final newPullCount = session.sets.where((s) => s.movementPattern == MovementPattern.pulling).length;
-        final newPushCount = session.sets.where((s) => s.movementPattern == MovementPattern.pushing).length;
+        final newPullCount = session.sets
+            .where((s) => s.movementPattern == MovementPattern.pulling)
+            .length;
+        final newPushCount = session.sets
+            .where((s) => s.movementPattern == MovementPattern.pushing)
+            .length;
 
         final totalPull = pullHistoryCount + newPullCount;
         final totalPush = pushHistoryCount + newPushCount;
@@ -153,12 +199,19 @@ void main() {
         // If the ratio is not satisfied, it must be because of a historical deficit that was uncorrectable,
         // which means the generator selected ZERO new pushing exercises (newPushCount == 0).
         if (totalPull < 2 * totalPush) {
-          expect(newPushCount, equals(0), reason: 'If 2:1 ratio cannot be satisfied, new pushing count must be restricted to 0');
-          expect(session.posturalWarningReason, equals(PosturalWarningReason.historicalDeficit));
-          expect(session.posturalWarning, contains('2:1 pull-to-push ratio not satisfied due to historical deficit'));
+          expect(newPushCount, equals(0),
+              reason:
+                  'If 2:1 ratio cannot be satisfied, new pushing count must be restricted to 0');
+          expect(session.posturalWarningReason,
+              equals(PosturalWarningReason.historicalDeficit));
+          expect(
+              session.posturalWarning,
+              contains(
+                  '2:1 pull-to-push ratio not satisfied due to historical deficit'));
         } else {
           // If the ratio is satisfied, verify it's correctly marked (no warning or historicalDeficit if it was corrected)
-          if (session.posturalWarningReason == PosturalWarningReason.historicalDeficit) {
+          if (session.posturalWarningReason ==
+              PosturalWarningReason.historicalDeficit) {
             // It could be that it wasn't satisfied previously but now it is.
             // If it is satisfied, posturalWarningReason should be none.
             expect(totalPull, lessThan(2 * totalPush));

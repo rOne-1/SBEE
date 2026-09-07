@@ -43,7 +43,8 @@ void main() {
         }
       }
 
-      final expectedDetraining = completedSessions.isNotEmpty && minGapInDays >= 14;
+      final expectedDetraining =
+          completedSessions.isNotEmpty && minGapInDays >= 14;
       expect(isDetraining, equals(expectedDetraining));
 
       // Test locks
@@ -66,12 +67,17 @@ void main() {
       );
 
       if (isDetraining) {
-        expect(isHeavyAllowed, isFalse, reason: 'Very Heavy must be locked when detraining is active');
-        expect(isPowerAllowed, isFalse, reason: 'Power must be locked when detraining is active');
-        expect(isModerateAllowed, isTrue, reason: 'Moderate must remain allowed under detraining status');
+        expect(isHeavyAllowed, isFalse,
+            reason: 'Very Heavy must be locked when detraining is active');
+        expect(isPowerAllowed, isFalse,
+            reason: 'Power must be locked when detraining is active');
+        expect(isModerateAllowed, isTrue,
+            reason: 'Moderate must remain allowed under detraining status');
       } else {
-        expect(isHeavyAllowed, isTrue, reason: 'Very Heavy must be allowed when detraining is inactive');
-        expect(isPowerAllowed, isTrue, reason: 'Power must be allowed when detraining is inactive');
+        expect(isHeavyAllowed, isTrue,
+            reason: 'Very Heavy must be allowed when detraining is inactive');
+        expect(isPowerAllowed, isTrue,
+            reason: 'Power must be allowed when detraining is inactive');
         expect(isModerateAllowed, isTrue);
       }
     },

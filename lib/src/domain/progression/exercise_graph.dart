@@ -14,7 +14,8 @@ class ExerciseGraph {
           comparator: (a, b) => a.id.compareTo(b.id),
         ) {
     if (!_graph.isAcyclic) {
-      throw ArgumentError('Exercise graph must be acyclic (no cycles allowed).');
+      throw ArgumentError(
+          'Exercise graph must be acyclic (no cycles allowed).');
     }
   }
 

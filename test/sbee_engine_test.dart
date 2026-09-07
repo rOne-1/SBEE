@@ -10,7 +10,7 @@ void main() {
     late ExerciseGraph graph;
     late SbeeEngine engine;
 
-    final exA = Exercise(
+    const exA = Exercise(
       id: 'A',
       name: 'Push-up Level 1',
       movementPattern: MovementPattern.pushing,
@@ -18,7 +18,7 @@ void main() {
       equipmentRequirements: {},
     );
 
-    final exB = Exercise(
+    const exB = Exercise(
       id: 'B',
       name: 'Push-up Level 2 (jumping/plyo)',
       movementPattern: MovementPattern.pushing,
@@ -45,11 +45,14 @@ void main() {
       await database.close();
     });
 
-    test('logSetPerformance triggers DAG progression when maxed out and under-stimulated', () async {
+    test(
+        'logSetPerformance triggers DAG progression when maxed out and under-stimulated',
+        () async {
       // 1. Initialize progression for Exercise A to max limits
       final initialProg = ExerciseProgression(
         exerciseId: 'A',
-        variables: const MillerVariables(load: 5, bodyPosition: 5, rom: 5, height: 5, tempo: 2),
+        variables: const MillerVariables(
+            load: 5, bodyPosition: 5, rom: 5, height: 5, tempo: 2),
         competencyLevel: 1,
         lastPerformed: DateTime.now(),
       );
@@ -72,11 +75,14 @@ void main() {
       expect(progB!.variables.load, equals(1));
     });
 
-    test('logSetPerformance triggers predecessor-traversal-and-max-out regression when at baseline and over-stimulated', () async {
+    test(
+        'logSetPerformance triggers predecessor-traversal-and-max-out regression when at baseline and over-stimulated',
+        () async {
       // 1. Initialize progression for Exercise B at minimum baseline
       final initialProg = ExerciseProgression(
         exerciseId: 'B',
-        variables: const MillerVariables(load: 1, bodyPosition: 1, rom: 1, height: 1, tempo: 1),
+        variables: const MillerVariables(
+            load: 1, bodyPosition: 1, rom: 1, height: 1, tempo: 1),
         competencyLevel: 1,
         lastPerformed: DateTime.now(),
       );
@@ -100,11 +106,13 @@ void main() {
       expect(progA.variables.tempo, equals(2));
     });
 
-    test('generateNextWorkout filters equipment, recovery locks, and joint-pain plyometrics', () async {
+    test(
+        'generateNextWorkout filters equipment, recovery locks, and joint-pain plyometrics',
+        () async {
       final now = DateTime.now();
 
       // Case 1: No equipment and joint pain active
-      final femaleProfileWithPain = const FemaleProfile(
+      const femaleProfileWithPain = FemaleProfile(
         userStatus: 'Trained_Female',
         cycleDay: 10,
         hasKneeDiscomfort: false,
@@ -133,10 +141,11 @@ void main() {
         availableEquipment: {Equipment.bands},
         femaleProfile: femaleProfileWithPain,
       );
-      expect(workout.sets.any((s) => s.exerciseId == 'B'), isFalse, reason: 'ExB should be excluded as plyometric under joint pain');
+      expect(workout.sets.any((s) => s.exerciseId == 'B'), isFalse,
+          reason: 'ExB should be excluded as plyometric under joint pain');
 
       // Case 3: Both allowed when bands are available and joint pain is false
-      final femaleProfileNoPain = const FemaleProfile(
+      const femaleProfileNoPain = FemaleProfile(
         userStatus: 'Trained_Female',
         cycleDay: 10,
         hasKneeDiscomfort: false,
@@ -149,10 +158,14 @@ void main() {
         availableEquipment: {Equipment.bands},
         femaleProfile: femaleProfileNoPain,
       );
-      expect(workout.sets.any((s) => s.exerciseId == 'B'), isTrue, reason: 'ExB is allowed when equipment matches and plyo is not gated');
+      expect(workout.sets.any((s) => s.exerciseId == 'B'), isTrue,
+          reason:
+              'ExB is allowed when equipment matches and plyo is not gated');
     });
 
-    test('generateNextWorkout prescribes DayType-driven reps/RPE instead of a hardcoded default', () async {
+    test(
+        'generateNextWorkout prescribes DayType-driven reps/RPE instead of a hardcoded default',
+        () async {
       final now = DateTime.now();
       final workout = await engine.generateNextWorkout(
         userId: 'user_1',
@@ -174,13 +187,17 @@ void main() {
       expect(workout.sets.where((s) => s.exerciseId == 'B').length, equals(4));
     });
 
-    test('generateNextWorkout uses DayType-driven setsCount, not a flat default', () async {
+    test(
+        'generateNextWorkout uses DayType-driven setsCount, not a flat default',
+        () async {
       final now = DateTime.now();
       // Seed one completed moderate session so the DUP rotation schedules veryHeavy next.
       await sessionRepo.saveSession(WorkoutSession(
         id: 'prior_moderate_session',
         startTime: now.subtract(const Duration(days: 2)),
-        endTime: now.subtract(const Duration(days: 2)).add(const Duration(minutes: 30)),
+        endTime: now
+            .subtract(const Duration(days: 2))
+            .add(const Duration(minutes: 30)),
         isCompleted: true,
         dayType: DayType.moderate,
       ));
@@ -197,14 +214,17 @@ void main() {
       expect(workout.sets.where((s) => s.exerciseId == 'B').length, equals(5));
     });
 
-    test('generateNextWorkout uses EMOM-structured reps on highLactic days', () async {
+    test('generateNextWorkout uses EMOM-structured reps on highLactic days',
+        () async {
       final now = DateTime.now();
       // Seed one completed veryLight session (recent enough to avoid the 14-day
       // detraining redirect) so the DUP rotation schedules highLactic next.
       await sessionRepo.saveSession(WorkoutSession(
         id: 'prior_session',
         startTime: now.subtract(const Duration(days: 3)),
-        endTime: now.subtract(const Duration(days: 3)).add(const Duration(minutes: 30)),
+        endTime: now
+            .subtract(const Duration(days: 3))
+            .add(const Duration(minutes: 30)),
         isCompleted: true,
         dayType: DayType.veryLight,
       ));
@@ -218,7 +238,8 @@ void main() {
       expect(workout.dayType, equals(DayType.highLactic));
       expect(workout.sets, isNotEmpty);
       for (final set in workout.sets) {
-        expect(set.minReps, equals(set.maxReps), reason: 'EMOM prescribes a single fixed rep count, not a range');
+        expect(set.minReps, equals(set.maxReps),
+            reason: 'EMOM prescribes a single fixed rep count, not a range');
         expect(set.reps, equals(set.minReps));
         expect(set.cues.any((c) => c.contains('EMOM Structure')), isTrue);
       }
@@ -230,7 +251,8 @@ void main() {
       expect(workout.sets.where((s) => s.exerciseId == 'B').length, equals(6));
     });
 
-    test('Per-exercise competencyLevel is promoted after enough completed sets', () async {
+    test('Per-exercise competencyLevel is promoted after enough completed sets',
+        () async {
       for (var i = 0; i < 8; i++) {
         await sessionRepo.saveSession(WorkoutSession(
           id: 'sess_$i',
@@ -251,7 +273,8 @@ void main() {
             ),
           ],
         ));
-        await engine.logSetPerformance(exerciseId: 'A', reps: 10, reportedRpe: 7, targetRpe: 7);
+        await engine.logSetPerformance(
+            exerciseId: 'A', reps: 10, reportedRpe: 7, targetRpe: 7);
       }
 
       final prog = await progressionRepo.getProgression('A');
@@ -259,7 +282,9 @@ void main() {
       expect(prog!.competencyLevel, equals(2));
     });
 
-    test('generateNextWorkout auto-detects Intermediate status once session-count and day-spread thresholds are met', () async {
+    test(
+        'generateNextWorkout auto-detects Intermediate status once session-count and day-spread thresholds are met',
+        () async {
       final now = DateTime.now();
       final earliest = now.subtract(const Duration(days: 20));
 
@@ -274,20 +299,29 @@ void main() {
         await sessionRepo.saveSession(WorkoutSession(
           id: 'seed_$i',
           startTime: now.subtract(const Duration(days: 1)),
-          endTime: now.subtract(const Duration(days: 1)).add(const Duration(minutes: 30)),
+          endTime: now
+              .subtract(const Duration(days: 1))
+              .add(const Duration(minutes: 30)),
           isCompleted: true,
           dayType: DayType.moderate,
         ));
       }
 
-      expect(await progressionRepo.getStatusAchievedDate('Intermediate'), isNull);
+      expect(
+          await progressionRepo.getStatusAchievedDate('Intermediate'), isNull);
 
-      await engine.generateNextWorkout(userId: 'user_1', currentTime: now, availableEquipment: {Equipment.bands});
+      await engine.generateNextWorkout(
+          userId: 'user_1',
+          currentTime: now,
+          availableEquipment: {Equipment.bands});
 
-      expect(await progressionRepo.getStatusAchievedDate('Intermediate'), isNotNull);
+      expect(await progressionRepo.getStatusAchievedDate('Intermediate'),
+          isNotNull);
     });
 
-    test('generateNextWorkout withholds Intermediate status below the session-count threshold', () async {
+    test(
+        'generateNextWorkout withholds Intermediate status below the session-count threshold',
+        () async {
       final now = DateTime.now();
       final earliest = now.subtract(const Duration(days: 20));
       for (var i = 0; i < 5; i++) {
@@ -299,9 +333,56 @@ void main() {
         ));
       }
 
-      await engine.generateNextWorkout(userId: 'user_1', currentTime: now, availableEquipment: {Equipment.bands});
+      await engine.generateNextWorkout(
+          userId: 'user_1',
+          currentTime: now,
+          availableEquipment: {Equipment.bands});
 
-      expect(await progressionRepo.getStatusAchievedDate('Intermediate'), isNull);
+      expect(
+          await progressionRepo.getStatusAchievedDate('Intermediate'), isNull);
+    });
+
+    test(
+        'resumeActiveSession recovers a workout interrupted mid-session (no finalize called)',
+        () async {
+      final now = DateTime.now();
+      final workout = await engine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: now,
+        availableEquipment: {Equipment.bands},
+      );
+      expect(workout.sets.length, greaterThan(1),
+          reason: 'need at least 2 sets for a meaningful resume test');
+
+      // Simulate starting the workout and logging only the first set, then "crashing"
+      // (no finalizeSession(), no explicit saveSession() by the host app).
+      final manager = engine.createWorkoutSession(session: workout);
+      manager.startWorkout();
+      manager.logCurrentSet(
+          reps: workout.sets.first.reps,
+          reportedRpe: workout.sets.first.targetRpe);
+      await Future<void>.delayed(
+          Duration.zero); // let the fire-and-forget persist land
+      manager.dispose();
+
+      // Nothing else in this test calls sessionRepository.saveSession directly: recovery
+      // must come entirely from the manager's own incremental persistence.
+      expect(await sessionRepo.getActiveIncompleteSession(), isNotNull);
+
+      final resumed = await engine.resumeActiveSession();
+      expect(resumed, isNotNull);
+      expect(resumed!.currentState.session!.id, equals(workout.id));
+      expect(resumed.currentState.currentSetIndex, equals(1));
+      expect(resumed.currentState.state, equals(SessionState.activeSet));
+      expect(resumed.currentState.session!.sets.first.reportedRpe,
+          equals(workout.sets.first.targetRpe));
+
+      resumed.dispose();
+    });
+
+    test('resumeActiveSession returns null when there is nothing to resume',
+        () async {
+      expect(await engine.resumeActiveSession(), isNull);
     });
   });
 }

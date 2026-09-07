@@ -7,7 +7,7 @@ import 'safety_rules.dart';
 /// User profile input data for the female physiology pre-processing layer.
 class FemaleProfile {
   final String userStatus; // E.g., "Untrained_Female", "Trained_Female"
-  final int cycleDay;      // 1-indexed day of menstrual cycle (e.g., 1–28)
+  final int cycleDay; // 1-indexed day of menstrual cycle (e.g., 1–28)
   final bool hasKneeDiscomfort;
   final int age;
   final bool hasJointPain;
@@ -22,11 +22,10 @@ class FemaleProfile {
 }
 
 /// Female Physiology Wrapper implemented using the Decorator / Pre-processing pattern.
-/// 
+///
 /// Adjusts training variables *before* they are processed by the core engine,
 /// ensuring the core safety-tested engine logic path remains the single source of truth.
 class FemalePhysiologyWrapper {
-  
   /// UNVERIFIED-BIBLIOGRAPHY SOURCE
   /// Surfaces growth hormone (GH) cues rather than testosterone.
   static String getEndocrineExplanation() {
@@ -40,7 +39,9 @@ class FemalePhysiologyWrapper {
     required int originalTargetRpe,
     required FemaleProfile profile,
   }) {
-    if (profile.userStatus == 'Untrained_Female' && profile.cycleDay >= 1 && profile.cycleDay <= 3) {
+    if (profile.userStatus == 'Untrained_Female' &&
+        profile.cycleDay >= 1 &&
+        profile.cycleDay <= 3) {
       final adjusted = originalTargetRpe - 1;
       return adjusted < 0 ? 0 : adjusted;
     }
@@ -61,13 +62,18 @@ class FemalePhysiologyWrapper {
 
     // Apply recovery pacing focus
     if (trainingFocus.toLowerCase() == 'conditioning') {
-      baseRest = const Duration(seconds: 45); // default conditioning rest within 30-45s range
+      baseRest = const Duration(
+          seconds: 45); // default conditioning rest within 30-45s range
     } else if (trainingFocus.toLowerCase() == 'strength') {
-      baseRest = const Duration(minutes: 2, seconds: 30); // default heavy strength rest within 2-3m range
+      baseRest = const Duration(
+          minutes: 2,
+          seconds: 30); // default heavy strength rest within 2-3m range
     }
 
     // Apply early follicular adjustment (+30s rest density)
-    if (profile.userStatus == 'Untrained_Female' && profile.cycleDay >= 1 && profile.cycleDay <= 3) {
+    if (profile.userStatus == 'Untrained_Female' &&
+        profile.cycleDay >= 1 &&
+        profile.cycleDay <= 3) {
       baseRest = baseRest + const Duration(seconds: 30);
     }
 
@@ -99,14 +105,18 @@ class FemalePhysiologyWrapper {
     cues.add('Stance: Ensure stable foot stance and align hips and knees.');
 
     // Spine stabilization override
-    if (exerciseName.toLowerCase().contains('crunch') || exerciseName.toLowerCase().contains('flexion')) {
-      cues.add('Core Pacing: Replace spinal flexion (crunches) with neutral stabilization.');
+    if (exerciseName.toLowerCase().contains('crunch') ||
+        exerciseName.toLowerCase().contains('flexion')) {
+      cues.add(
+          'Core Pacing: Replace spinal flexion (crunches) with neutral stabilization.');
     }
 
     // Knee Valgus Safety Rail
     if (profile.hasKneeDiscomfort) {
-      cues.add('Knee Safety: Trigger McGill Big 3 and Side Plank with Hip Abduction for hip-knee alignment control.');
-      cues.add('Knee Safety Rep Floor: Set a floor of 12-15 repetitions for lower-body sets to focus on alignment.');
+      cues.add(
+          'Knee Safety: Trigger McGill Big 3 and Side Plank with Hip Abduction for hip-knee alignment control.');
+      cues.add(
+          'Knee Safety Rep Floor: Set a floor of 12-15 repetitions for lower-body sets to focus on alignment.');
     }
 
     return cues;
@@ -159,7 +169,8 @@ class FemalePhysiologyWrapper {
     required FemaleProfile profile,
     bool isAdvancedTempoUnlocked = false,
   }) {
-    final adjustedTarget = adjustTargetRpe(originalTargetRpe: targetRpe, profile: profile);
+    final adjustedTarget =
+        adjustTargetRpe(originalTargetRpe: targetRpe, profile: profile);
     return AutoregulationEngine.adjustVariables(
       currentVariables: currentVariables,
       reportedRpe: reportedRpe,

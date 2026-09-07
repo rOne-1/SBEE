@@ -9,7 +9,10 @@ void main() {
       final base = DateTime(2026, 7, 1, 12, 0);
 
       // Empty sessions -> detraining false
-      expect(DetrainingLogic.isDetrainingActive(completedSessions: [], currentTime: base), isFalse);
+      expect(
+          DetrainingLogic.isDetrainingActive(
+              completedSessions: [], currentTime: base),
+          isFalse);
 
       final s1 = WorkoutSession(
         id: '1',
@@ -19,53 +22,126 @@ void main() {
       );
 
       // Under 14 days -> false
-      expect(DetrainingLogic.isDetrainingActive(completedSessions: [s1], currentTime: base.add(const Duration(days: 10))), isFalse);
-      expect(DetrainingLogic.isDetrainingActive(completedSessions: [s1], currentTime: base.add(const Duration(days: 13))), isFalse);
+      expect(
+          DetrainingLogic.isDetrainingActive(
+              completedSessions: [s1],
+              currentTime: base.add(const Duration(days: 10))),
+          isFalse);
+      expect(
+          DetrainingLogic.isDetrainingActive(
+              completedSessions: [s1],
+              currentTime: base.add(const Duration(days: 13))),
+          isFalse);
 
       // 14 days or longer -> true
-      expect(DetrainingLogic.isDetrainingActive(completedSessions: [s1], currentTime: base.add(const Duration(days: 14, minutes: 45))), isTrue);
-      expect(DetrainingLogic.isDetrainingActive(completedSessions: [s1], currentTime: base.add(const Duration(days: 20))), isTrue);
+      expect(
+          DetrainingLogic.isDetrainingActive(
+              completedSessions: [s1],
+              currentTime: base.add(const Duration(days: 14, minutes: 45))),
+          isTrue);
+      expect(
+          DetrainingLogic.isDetrainingActive(
+              completedSessions: [s1],
+              currentTime: base.add(const Duration(days: 20))),
+          isTrue);
     });
 
     test('Locked out day-types under detraining status', () {
       final base = DateTime(2026, 7, 1, 12, 0);
-      final s = WorkoutSession(id: '1', startTime: base, endTime: base.add(const Duration(minutes: 30)), isCompleted: true);
+      final s = WorkoutSession(
+          id: '1',
+          startTime: base,
+          endTime: base.add(const Duration(minutes: 30)),
+          isCompleted: true);
       final history = [s];
 
       final activeTime = base.add(const Duration(days: 5)); // No detraining
-      final detrainedTime = base.add(const Duration(days: 20)); // Detraining active
+      final detrainedTime =
+          base.add(const Duration(days: 20)); // Detraining active
 
       // When active
-      expect(DetrainingLogic.isDayTypeAllowed(dayType: DayType.veryHeavy, completedSessions: history, currentTime: activeTime), isTrue);
-      expect(DetrainingLogic.isDayTypeAllowed(dayType: DayType.power, completedSessions: history, currentTime: activeTime), isTrue);
-      expect(DetrainingLogic.isDayTypeAllowed(dayType: DayType.moderate, completedSessions: history, currentTime: activeTime), isTrue);
+      expect(
+          DetrainingLogic.isDayTypeAllowed(
+              dayType: DayType.veryHeavy,
+              completedSessions: history,
+              currentTime: activeTime),
+          isTrue);
+      expect(
+          DetrainingLogic.isDayTypeAllowed(
+              dayType: DayType.power,
+              completedSessions: history,
+              currentTime: activeTime),
+          isTrue);
+      expect(
+          DetrainingLogic.isDayTypeAllowed(
+              dayType: DayType.moderate,
+              completedSessions: history,
+              currentTime: activeTime),
+          isTrue);
 
       // When detrained
-      expect(DetrainingLogic.isDayTypeAllowed(dayType: DayType.veryHeavy, completedSessions: history, currentTime: detrainedTime), isFalse);
-      expect(DetrainingLogic.isDayTypeAllowed(dayType: DayType.power, completedSessions: history, currentTime: detrainedTime), isFalse);
-      expect(DetrainingLogic.isDayTypeAllowed(dayType: DayType.moderate, completedSessions: history, currentTime: detrainedTime), isTrue);
+      expect(
+          DetrainingLogic.isDayTypeAllowed(
+              dayType: DayType.veryHeavy,
+              completedSessions: history,
+              currentTime: detrainedTime),
+          isFalse);
+      expect(
+          DetrainingLogic.isDayTypeAllowed(
+              dayType: DayType.power,
+              completedSessions: history,
+              currentTime: detrainedTime),
+          isFalse);
+      expect(
+          DetrainingLogic.isDayTypeAllowed(
+              dayType: DayType.moderate,
+              completedSessions: history,
+              currentTime: detrainedTime),
+          isTrue);
     });
 
     test('Tempo and corrective cues under detraining status', () {
       final base = DateTime(2026, 7, 1, 12, 0);
-      final s = WorkoutSession(id: '1', startTime: base, endTime: base.add(const Duration(minutes: 30)), isCompleted: true);
+      final s = WorkoutSession(
+          id: '1',
+          startTime: base,
+          endTime: base.add(const Duration(minutes: 30)),
+          isCompleted: true);
       final history = [s];
 
       final activeTime = base.add(const Duration(days: 5));
       final detrainedTime = base.add(const Duration(days: 20));
 
       // Tempo
-      expect(DetrainingLogic.getPrescribedTempo(completedSessions: history, currentTime: activeTime, defaultTempo: '6-0-0'), equals('6-0-0'));
-      expect(DetrainingLogic.getPrescribedTempo(completedSessions: history, currentTime: detrainedTime, defaultTempo: '6-0-0'), equals('4-2-1'));
+      expect(
+          DetrainingLogic.getPrescribedTempo(
+              completedSessions: history,
+              currentTime: activeTime,
+              defaultTempo: '6-0-0'),
+          equals('6-0-0'));
+      expect(
+          DetrainingLogic.getPrescribedTempo(
+              completedSessions: history,
+              currentTime: detrainedTime,
+              defaultTempo: '6-0-0'),
+          equals('4-2-1'));
 
       // Cues
-      expect(DetrainingLogic.getCorrectiveCues(completedSessions: history, currentTime: activeTime), isEmpty);
-      expect(DetrainingLogic.getCorrectiveCues(completedSessions: history, currentTime: detrainedTime), isNotEmpty);
+      expect(
+          DetrainingLogic.getCorrectiveCues(
+              completedSessions: history, currentTime: activeTime),
+          isEmpty);
+      expect(
+          DetrainingLogic.getCorrectiveCues(
+              completedSessions: history, currentTime: detrainedTime),
+          isNotEmpty);
     });
 
-    test('Lockout Interaction Integration: 48h Recovery Lock + Detraining Lockout', () {
+    test(
+        'Lockout Interaction Integration: 48h Recovery Lock + Detraining Lockout',
+        () {
       final base = DateTime(2026, 7, 1, 12, 0);
-      
+
       // Let's create a history where:
       // 1. The user completed a workout 15 days ago (causing detraining to be active now).
       // 2. The user did a high-intensity pushing set (RPE 8) 12 hours ago (causing a 48h recovery lock on pushing).
@@ -94,15 +170,6 @@ void main() {
         variables: const MillerVariables(),
         timestamp: base.subtract(const Duration(hours: 12)),
       );
-
-      final recentSession = WorkoutSession(
-        id: 'recent_session',
-        startTime: base.subtract(const Duration(hours: 12)),
-        isCompleted: true,
-        sets: [recentSet],
-      );
-
-      final history = [oldSession, recentSession];
 
       // 1. Detraining lockout is active because the last completed session is NOT oldSession,
       // but wait! The most recently completed session is recentSession (which was 12 hours ago).
@@ -145,7 +212,9 @@ void main() {
         completedSessions: integrationHistory,
         currentTime: base,
       );
-      expect(isDetraining, isTrue, reason: 'Detraining should be active because the last COMPLETED session was 15 days ago.');
+      expect(isDetraining, isTrue,
+          reason:
+              'Detraining should be active because the last COMPLETED session was 15 days ago.');
 
       // Check Recovery Lock state
       final isPushLocked = SafetyRules.isMovementLocked(
@@ -153,7 +222,9 @@ void main() {
         pattern: MovementPattern.pushing,
         currentTime: base,
       );
-      expect(isPushLocked, isTrue, reason: 'Pushing should be locked because a set with RPE 9 was done 12 hours ago.');
+      expect(isPushLocked, isTrue,
+          reason:
+              'Pushing should be locked because a set with RPE 9 was done 12 hours ago.');
 
       // Verify composition: both lockouts are active, and neither suppresses the other
       final isVeryHeavyAllowed = DetrainingLogic.isDayTypeAllowed(
@@ -161,7 +232,8 @@ void main() {
         completedSessions: integrationHistory,
         currentTime: base,
       );
-      expect(isVeryHeavyAllowed, isFalse, reason: 'Very Heavy is locked by detraining.');
+      expect(isVeryHeavyAllowed, isFalse,
+          reason: 'Very Heavy is locked by detraining.');
 
       final isPullingLocked = SafetyRules.isMovementLocked(
         pastSets: [recentSet],
@@ -171,9 +243,11 @@ void main() {
       expect(isPullingLocked, isFalse, reason: 'Pulling is not locked.');
     });
 
-    test('Lockout Interaction Integration: Case 1: Detraining active, 48h Recovery Lock inactive', () {
+    test(
+        'Lockout Interaction Integration: Case 1: Detraining active, 48h Recovery Lock inactive',
+        () {
       final base = DateTime(2026, 7, 1, 12, 0);
-      
+
       final oldSession = WorkoutSession(
         id: 'old_1',
         startTime: base.subtract(const Duration(days: 15)),
@@ -204,9 +278,11 @@ void main() {
       expect(isVeryHeavyAllowed, isFalse);
     });
 
-    test('Lockout Interaction Integration: Case 2: Detraining inactive, 48h Recovery Lock active', () {
+    test(
+        'Lockout Interaction Integration: Case 2: Detraining inactive, 48h Recovery Lock active',
+        () {
       final base = DateTime(2026, 7, 1, 12, 0);
-      
+
       final recentSession = WorkoutSession(
         id: 'recent_1',
         startTime: base.subtract(const Duration(days: 1)),
@@ -252,7 +328,7 @@ void main() {
 
     test('Lockout Interaction Integration: Case 3: Both locks inactive', () {
       final base = DateTime(2026, 7, 1, 12, 0);
-      
+
       final recentSession = WorkoutSession(
         id: 'recent_1',
         startTime: base.subtract(const Duration(days: 1)),

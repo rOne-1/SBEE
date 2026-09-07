@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- **Replaced unbounded full-history table scans with targeted, indexed queries.** `generateNextWorkout` and `logSetPerformance` previously fetched every session/set ever recorded (`getSessionsInDateRange(DateTime(1970), ...)`) just to find a single most-recent value or a count. Added `getMostRecentCompletedSession`, `getEarliestCompletedSessionStart`, `getCompletedSessionCount`, `getReportedSetCountForExercise`, and `getActiveIncompleteSession` to `SessionRepository`, each backed by a real `ORDER BY ... LIMIT 1` / `COUNT` / `MIN` query in `DriftSessionRepository`. No behavior change — the full existing test suite (including all 1000-iteration property tests) passes unchanged.
+- **Added incremental mid-workout persistence and crash recovery.** Previously, nothing persisted an active workout session until the host app explicitly saved it after finalizing — an app crash, force-quit, or backgrounded-process kill mid-workout lost all progress, including sets already logged. `SessionStreamManager` now optionally persists after every logged set when given a `SessionRepository`, and a new `SbeeEngine.resumeActiveSession()` reconstructs an in-progress session (resuming at the correct set) after a restart.
+- See `doc/DECISIONS_LOG.md` Phase 5 for full rationale.
+
 ## 0.3.0
 
 - **Set volume (`setsCount`) now varies by `DayType`** instead of the same flat `4` sets used for every day-type. `DayTypePrescription` gained a `setsCount` field (veryHeavy: 5, moderate: 4, power: 5, veryLight: 3, highLactic: 6 EMOM rounds), applied as the new base before the existing deload-halving and female-wrapper minimum-floor adjustments.

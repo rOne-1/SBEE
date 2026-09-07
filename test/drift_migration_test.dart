@@ -70,7 +70,7 @@ void main() {
 
       // 3. Initialize SbeeDatabase (runs onUpgrade from 1 to 3)
       final db = SbeeDatabase(NativeDatabase.opened(rawDb));
-      
+
       // Let's force db open and migration execution by running a simple query
       await db.select(db.driftWorkoutSessions).get();
 
@@ -124,9 +124,11 @@ void main() {
       expect(retrieved, isNotNull);
       expect(retrieved!.dayType, equals(DayType.veryHeavy));
       expect(retrieved.posturalWarning, equals('Historical deficit warning'));
-      expect(retrieved.posturalWarningReason, equals(PosturalWarningReason.historicalDeficit));
+      expect(retrieved.posturalWarningReason,
+          equals(PosturalWarningReason.historicalDeficit));
       expect(retrieved.sets.length, equals(1));
-      expect(retrieved.sets.first.restDuration, equals(const Duration(seconds: 45)));
+      expect(retrieved.sets.first.restDuration,
+          equals(const Duration(seconds: 45)));
       expect(retrieved.sets.first.cues, contains('Test Cue 1'));
       expect(retrieved.sets.first.minReps, equals(1));
       expect(retrieved.sets.first.maxReps, equals(5));

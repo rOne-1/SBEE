@@ -10,11 +10,17 @@ class SafetyRules {
     final windowStart = currentTime.subtract(const Duration(days: 14));
     final setsInWindow = pastSets.where((s) {
       // Timestamp must be within the last 14 days and not in the future relative to currentTime
-      return s.timestamp.isAfter(windowStart) && !s.timestamp.isBefore(windowStart) && !s.timestamp.isAfter(currentTime);
+      return s.timestamp.isAfter(windowStart) &&
+          !s.timestamp.isBefore(windowStart) &&
+          !s.timestamp.isAfter(currentTime);
     }).toList();
-    
-    final pushSets = setsInWindow.where((s) => s.movementPattern == MovementPattern.pushing).length;
-    final pullSets = setsInWindow.where((s) => s.movementPattern == MovementPattern.pulling).length;
+
+    final pushSets = setsInWindow
+        .where((s) => s.movementPattern == MovementPattern.pushing)
+        .length;
+    final pullSets = setsInWindow
+        .where((s) => s.movementPattern == MovementPattern.pulling)
+        .length;
 
     if (pushSets == 0) return true;
     return pullSets >= (2 * pushSets);
@@ -29,7 +35,9 @@ class SafetyRules {
     required DateTime currentTime,
   }) {
     for (final set in pastSets) {
-      if (set.movementPattern == pattern && set.reportedRpe != null && set.reportedRpe! >= 8) {
+      if (set.movementPattern == pattern &&
+          set.reportedRpe != null &&
+          set.reportedRpe! >= 8) {
         final difference = currentTime.difference(set.timestamp);
         if (difference.inHours >= 0 && difference.inHours < 48) {
           return true; // Locked

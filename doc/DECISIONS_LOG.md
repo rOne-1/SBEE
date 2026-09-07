@@ -1,6 +1,6 @@
 # SBEE Decisions Log
 
-This document records the architectural history and key design decisions made during the four development phases of the Science-Based Exercise Engine (SBEE). It details the core logic invariants, limitations, database schema evolution, and contains the unedited test suite logs from the validation runs.
+This document records the architectural history and key design decisions made during the five development phases of the Science-Based Exercise Engine (SBEE). It details the core logic invariants, limitations, database schema evolution, and contains the unedited test suite logs from the validation runs.
 
 ---
 
@@ -57,6 +57,13 @@ Prior to this phase, `generateNextWorkout` scheduled a `DayType` label but never
 - **Competency Progression (per-exercise)**: `ExerciseProgression.competencyLevel` is now derived inside `logSetPerformance` from that exercise's own completed-set history (sets with a non-null `reportedRpe`): promotes 1→2 at `8` completed sets, 2→3 at `20`. Monotonic — never lowers a level already reached.
 - **Whole-Account "Intermediate" Status (auto-detected)**: `generateNextWorkout` now checks, once per call, whether the account has `≥ 12` completed sessions **and** `≥ 14` days have elapsed since the very first completed session, and writes `saveStatusAchievedDate('Intermediate', currentTime)` exactly once (idempotent) the first time both are true. Requiring both a count and a day-spread (reusing the codebase's existing 14-day window convention) prevents a burst of same-day sessions from fast-tracking the status — consistent with the "calendar-day progression is strictly forbidden" philosophy already documented on `IntensityTechniques.canProgressTabata`.
 - **DayType-Driven Set Volume**: Before this decision, every exercise always generated the same flat `4` sets regardless of `DayType` (only deload-halving and the age-45+ female-wrapper floor could change it) — a `veryHeavy` day and a `veryLight` day produced the same set count, just with different reps/RPE after the change above. `DayTypePrescription` gained a `setsCount` field (table in §2 below), applied as the new base count in `generateNextWorkout`'s `calculateExerciseSetsCount` helper, with the existing deload-halving and female-wrapper floor logic applied on top unchanged.
+
+### Phase 5: Query Scaling & Mid-Workout Resilience
+Two production-readiness gaps identified during a review of "how far is SBEE from daily-drivable": every `generateNextWorkout`/`logSetPerformance` call scanned the **entire** session/set history (`getSessionsInDateRange(DateTime(1970), currentTime)` / `getSetsInDateRange(DateTime(1970), DateTime.now())`) just to find a single most-recent value or a count — fine at zero rows, but an unbounded full-table scan on every screen load after months of real use. Separately, an active `SessionStreamManager` lived entirely in Riverpod/in-memory state; nothing persisted a workout's progress until the host app explicitly called `saveSession()` after `finalizeSession()` — an app crash, force-quit, or backgrounded-process kill mid-workout lost the entire session, including sets already logged.
+
+- **Targeted Repository Queries Replace Full-History Scans**: `SessionRepository` gained five new, narrowly-scoped, indexed query methods: `getMostRecentCompletedSession({requireDayType})`, `getEarliestCompletedSessionStart()`, `getCompletedSessionCount()`, `getReportedSetCountForExercise(exerciseId)`, and `getActiveIncompleteSession()`. `generateNextWorkout` and `logSetPerformance` now call exactly the targeted query each consumer needs (e.g. `PeriodizationScheduler.isDeloadActive` only ever reads the earliest session's `startTime`) instead of fetching everything and filtering in Dart. The pure scheduling/detraining functions themselves (`PeriodizationScheduler.getNextDayType`, `isDeloadActive`; `DetrainingLogic.isDetrainingActive`) were deliberately left with their existing `List<WorkoutSession>` signatures unchanged (avoiding any risk to their existing, well-tested behavior) — callers now just pass a minimal 0-or-1-element list built from the targeted query result, which is behaviorally exact for every call site verified against the existing test suite (all 1000-iteration property tests and unit tests passed unchanged after the refactor). `DriftSessionRepository` implements these via `ORDER BY ... LIMIT 1` and `COUNT`/`MIN` aggregate queries rather than `SELECT *` scans.
+- **Incremental Mid-Workout Persistence & Resume**: `SessionStreamManager` now optionally accepts a `SessionRepository` and persists the session (fire-and-forget, errors swallowed so a transient write failure can't crash the active FSM) after `initializeSession` and every `logCurrentSet`. `SessionRepository.getActiveIncompleteSession()` finds a session left with `isCompleted == false`; `SessionStreamManager.resumeSession()` reconstructs the FSM at the correct point (replaying its own guarded transitions against already-logged sets without re-writing their recorded data), and the new `SbeeEngine.resumeActiveSession()` facade method ties both together for a host app to call once at startup. The final, authoritative save at `finalizeSession()` time remains the host app's own explicit, awaited `saveSession()` call, unchanged. No schema change was needed — this reads/writes only the existing `isCompleted`/`startTime`/set fields.
+- **Scope note**: this phase closes the two `SBEE`-side gaps identified. It does **not** include a host-app UI for offering "resume your workout?" — that decision (when to check, what to show) belongs entirely to each host app.
 
 ---
 
@@ -137,13 +144,13 @@ The current design of SBEE has the following known limitations and deferred impl
 
 ## 4.8. Versioning
 
-The current library version is `0.3.0`. All changes, database schema migrations, and feature additions are recorded in the [CHANGELOG.md](../CHANGELOG.md) in the repository root.
+The current library version is `0.4.0`. All changes, database schema migrations, and feature additions are recorded in the [CHANGELOG.md](../CHANGELOG.md) in the repository root.
 
 ---
 
 ## 5. Unedited Test Suite Logs
 
-Below is the complete, unedited list of the 51 unique tests verifying all components of the SBEE library.
+Below is the complete, unedited list of the 58 unique tests verifying all components of the SBEE library.
 
 ```
 14-Day Detraining Lockout Invariant (testing 1000 inputs)
@@ -167,6 +174,7 @@ DetrainingLogic Tests Lockout Interaction Integration: Case 3: Both locks inacti
 DetrainingLogic Tests Tempo and corrective cues under detraining status
 Drift Database Migration Tests Upgrade path from schema version 1 to 4 runs successfully
 Drift Repositories Tests DriftProgressionRepository tracks competency and status date
+Drift Repositories Tests DriftSessionRepository bounded-query methods replace full-history scans
 Drift Repositories Tests DriftSessionRepository saves and retrieves sessions and sets
 ExerciseGraph Tests Successfully builds acyclic graph and sorts topologically
 ExerciseGraph Tests Throws ArgumentError if a cycle is introduced
@@ -195,6 +203,12 @@ SbeeEngine Tests generateNextWorkout uses EMOM-structured reps on highLactic day
 SbeeEngine Tests generateNextWorkout withholds Intermediate status below the session-count threshold
 SbeeEngine Tests logSetPerformance triggers DAG progression when maxed out and under-stimulated
 SbeeEngine Tests logSetPerformance triggers predecessor-traversal-and-max-out regression when at baseline and over-stimulated
+SbeeEngine Tests resumeActiveSession recovers a workout interrupted mid-session (no finalize called)
+SbeeEngine Tests resumeActiveSession returns null when there is nothing to resume
 SessionStateMachine & Stream Tests SessionStateMachine enforces correct transitions
+SessionStateMachine & Stream Tests SessionStreamManager persists progress incrementally when given a repository
 SessionStateMachine & Stream Tests SessionStreamManager pipelines workout flow reactively
+SessionStateMachine & Stream Tests SessionStreamManager.resumeSession rejects resuming while a session is already active
+SessionStateMachine & Stream Tests SessionStreamManager.resumeSession resumes at coolDown if every set was already logged
+SessionStateMachine & Stream Tests SessionStreamManager.resumeSession restores the FSM at the next unlogged set
 ```

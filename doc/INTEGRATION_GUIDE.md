@@ -273,6 +273,27 @@ A host app can map state changes emitted by the stream to specific screens:
 | `coolDown` | Active sets complete, stretching | Cool-down instruction list | `finalizeSession()` |
 | `completed` | Workout completed | Summary screen, stats saved | Close/Navigate back |
 
+### Recovering an Interrupted Workout
+
+`SbeeEngine.createWorkoutSession` returns a `SessionStreamManager` that persists progress after every logged set. If the app is killed mid-workout (backgrounded and reclaimed by the OS, a crash, a force-quit), that progress is not lost — call `resumeActiveSession()` once at app startup, before offering a "start a new workout" action:
+
+```dart
+Future<void> checkForInterruptedWorkout(SbeeEngine engine, WidgetRef ref) async {
+  final resumed = await engine.resumeActiveSession();
+  if (resumed != null) {
+    // A session was left in progress. Wire it up exactly like a freshly-created
+    // manager (see startWorkoutSession above) and navigate to whatever screen
+    // matches resumed.currentState.state -- e.g. straight back to the active-set
+    // screen if it resumed at `activeSet`.
+    ref.read(sessionStreamManagerProvider.notifier).state = resumed;
+  }
+  // If null, there was nothing to resume -- proceed normally.
+}
+```
+
+> [!NOTE]
+> SBEE only provides the recovery *capability*. Whether and how to surface "resume your last workout?" to the user (a prompt, silent auto-resume, a banner) is entirely a host-app UI decision.
+
 ---
 
 ## 6. Autoregulation & DAG Traversal

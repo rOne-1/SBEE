@@ -11,7 +11,7 @@ enum AutoregulationAction {
 /// against a target RPE to dynamically adjust intensity parameters.
 class AutoregulationEngine {
   /// Evaluates the user reported RPE against the target RPE and determines the action.
-  /// 
+  ///
   /// Logic:
   /// - IF User_Reported_RPE < (Target_RPE - 1): Trigger Miller Variable Increment.
   /// - IF User_Reported_RPE > (Target_RPE + 1): Trigger Miller Variable Regression.
@@ -20,7 +20,10 @@ class AutoregulationEngine {
     required int reportedRpe,
     required int targetRpe,
   }) {
-    if (reportedRpe < 0 || reportedRpe > 10 || targetRpe < 0 || targetRpe > 10) {
+    if (reportedRpe < 0 ||
+        reportedRpe > 10 ||
+        targetRpe < 0 ||
+        targetRpe > 10) {
       throw ArgumentError('RPE must be in the range [0, 10].');
     }
 
@@ -34,7 +37,7 @@ class AutoregulationEngine {
   }
 
   /// Evaluates and applies the autoregulation adjustment directly to [currentVariables].
-  /// 
+  ///
   /// Takes into account whether the advanced 6s tempo is unlocked via [isAdvancedTempoUnlocked].
   static MillerVariables adjustVariables({
     required MillerVariables currentVariables,
@@ -45,7 +48,8 @@ class AutoregulationEngine {
     final action = evaluate(reportedRpe: reportedRpe, targetRpe: targetRpe);
     switch (action) {
       case AutoregulationAction.increment:
-        return currentVariables.increment(isAdvancedTempoUnlocked: isAdvancedTempoUnlocked);
+        return currentVariables.increment(
+            isAdvancedTempoUnlocked: isAdvancedTempoUnlocked);
       case AutoregulationAction.regress:
         return currentVariables.regress();
       case AutoregulationAction.maintain:

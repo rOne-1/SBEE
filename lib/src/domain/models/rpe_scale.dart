@@ -27,28 +27,32 @@ class RpeInfo {
       return RpeInfo(
         rpe: rpe,
         rirEquivalent: '0 - 1',
-        physiologicalState: 'Maximum Intensity: Neural drive exhaustion; total ATP-PC depletion; high motor unit recruitment.',
+        physiologicalState:
+            'Maximum Intensity: Neural drive exhaustion; total ATP-PC depletion; high motor unit recruitment.',
         engineResponse: 'Gating required; cannot exceed 1 session/48h.',
       );
     } else if (rpe == 8) {
       return RpeInfo(
         rpe: rpe,
         rirEquivalent: '2',
-        physiologicalState: 'High Intensity: Lactic acid accumulation; significant metabolic byproduct concentration.',
+        physiologicalState:
+            'High Intensity: Lactic acid accumulation; significant metabolic byproduct concentration.',
         engineResponse: 'Target zone for Hypertrophy/Strength phases.',
       );
     } else if (rpe >= 6) {
       return RpeInfo(
         rpe: rpe,
         rirEquivalent: '3 - 4',
-        physiologicalState: 'Moderate Intensity: Sustainable glycolytic flux; technical proficiency remains high.',
+        physiologicalState:
+            'Moderate Intensity: Sustainable glycolytic flux; technical proficiency remains high.',
         engineResponse: 'Default baseline for Stabilization/Endurance phases.',
       );
     } else {
       return RpeInfo(
         rpe: rpe,
         rirEquivalent: '5+',
-        physiologicalState: 'Low Intensity/Recovery: Minimal neuromuscular strain; oxidative system dominant.',
+        physiologicalState:
+            'Low Intensity/Recovery: Minimal neuromuscular strain; oxidative system dominant.',
         engineResponse: 'Trigger Miller Variable Increment.',
       );
     }

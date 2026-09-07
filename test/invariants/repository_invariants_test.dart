@@ -12,7 +12,7 @@ void main() {
 
       final now = DateTime.now();
       final isCompleted = seed.isEven;
-      
+
       // Let's create an invalid session state based on the seed
       final scenario = seed.abs() % 5;
 
@@ -75,7 +75,8 @@ void main() {
       expect(
         () => repo.saveSession(session),
         throwsA(isA<SessionRepositoryException>()),
-        reason: 'Scenario $scenario with seed $seed must throw SessionRepositoryException',
+        reason:
+            'Scenario $scenario with seed $seed must throw SessionRepositoryException',
       );
 
       await db.close();

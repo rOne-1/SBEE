@@ -22,7 +22,8 @@ class SessionStateMachine {
   // Callback triggered when the state transitions.
   final void Function(SessionState state)? onStateChanged;
 
-  SessionStateMachine({this.onStateChanged}) : _machine = Machine<SessionState>() {
+  SessionStateMachine({this.onStateChanged})
+      : _machine = Machine<SessionState>() {
     _stateWarmUp = _machine.newStartState(SessionState.warmUp);
     _stateActiveSet = _machine.newState(SessionState.activeSet);
     _stateRest = _machine.newState(SessionState.rest);
@@ -63,7 +64,8 @@ class SessionStateMachine {
 
   /// Transition from [SessionState.activeSet] or [SessionState.rest] to [SessionState.coolDown].
   void completeWorkout() {
-    if (currentState != SessionState.activeSet && currentState != SessionState.rest) {
+    if (currentState != SessionState.activeSet &&
+        currentState != SessionState.rest) {
       throw StateError(
         'Cannot call completeWorkout when in $currentState state. Must be in activeSet or rest.',
       );

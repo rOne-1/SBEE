@@ -11,8 +11,9 @@ void main() {
       final sets = <WorkoutSet>[];
       for (final pair in input) {
         if (pair.length < 2) continue;
-        final pattern = MovementPattern.values[pair[0].abs() % MovementPattern.values.length];
-        
+        final pattern = MovementPattern
+            .values[pair[0].abs() % MovementPattern.values.length];
+
         // Generate random age from 0 to 719 hours (30 days ago)
         final hoursAgo = pair[1].abs() % 720;
         final timestamp = currentTime.subtract(Duration(hours: hoursAgo));
@@ -46,8 +47,12 @@ void main() {
             !s.timestamp.isAfter(currentTime);
       }).toList();
 
-      final pushCount = setsInWindow.where((s) => s.movementPattern == MovementPattern.pushing).length;
-      final pullCount = setsInWindow.where((s) => s.movementPattern == MovementPattern.pulling).length;
+      final pushCount = setsInWindow
+          .where((s) => s.movementPattern == MovementPattern.pushing)
+          .length;
+      final pullCount = setsInWindow
+          .where((s) => s.movementPattern == MovementPattern.pulling)
+          .length;
 
       if (pushCount == 0) {
         expect(isValid, isTrue);

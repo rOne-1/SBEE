@@ -10,8 +10,10 @@ class WorkoutSet {
   final MovementPattern movementPattern;
   final int setNumber;
   final int reps;
-  final int? minReps; // Prescribed rep-range floor. Null if this set was not generated from a ranged prescription.
-  final int? maxReps; // Prescribed rep-range ceiling. Null if this set was not generated from a ranged prescription.
+  final int?
+      minReps; // Prescribed rep-range floor. Null if this set was not generated from a ranged prescription.
+  final int?
+      maxReps; // Prescribed rep-range ceiling. Null if this set was not generated from a ranged prescription.
   final int targetRpe;
   final int? reportedRpe; // Null if set is not yet completed/reported
   final MillerVariables variables;
@@ -123,7 +125,8 @@ class WorkoutSession {
       isCompleted: isCompleted ?? this.isCompleted,
       dayType: dayType ?? this.dayType,
       posturalWarning: posturalWarning ?? this.posturalWarning,
-      posturalWarningReason: posturalWarningReason ?? this.posturalWarningReason,
+      posturalWarningReason:
+          posturalWarningReason ?? this.posturalWarningReason,
     );
   }
 }

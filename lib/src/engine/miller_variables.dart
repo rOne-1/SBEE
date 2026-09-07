@@ -1,8 +1,8 @@
 /// Kenneth Miller's 5-variable progression/regression framework.
-/// 
+///
 /// The core engine adjusts exercise biomechanics when external load modifications
 /// are limited (common in home-based resistance training with bodyweight/bands).
-/// 
+///
 /// HARDCODE: Priority logic must follow this sequence to prevent biomechanical impossibility:
 /// 1. Intensity/Load (Highest Priority: Change leverage, angle, or resistance curve)
 /// 2. Body Position (Base of support modification)
@@ -33,7 +33,7 @@ class MillerVariables {
 
   /// Performs a progression (increment) based on Miller Variable Priority (MVP) logic:
   /// Load > Body Position > ROM > Height > Tempo.
-  /// 
+  ///
   /// Access to advanced tempo (level 2) is controlled by [isAdvancedTempoUnlocked].
   MillerVariables increment({bool isAdvancedTempoUnlocked = false}) {
     // 1. Intensity/Load (Highest Priority)

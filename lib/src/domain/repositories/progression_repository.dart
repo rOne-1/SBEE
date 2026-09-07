@@ -4,7 +4,8 @@ import '../../engine/miller_variables.dart';
 class ExerciseProgression {
   final String exerciseId;
   final MillerVariables variables;
-  final int competencyLevel; // e.g. 1 = Beginner, 2 = Intermediate, 3 = Advanced
+  final int
+      competencyLevel; // e.g. 1 = Beginner, 2 = Intermediate, 3 = Advanced
   final DateTime lastPerformed;
 
   const ExerciseProgression({
@@ -57,5 +58,6 @@ class ProgressionRepositoryException implements Exception {
   ProgressionRepositoryException(this.message, [this.cause]);
 
   @override
-  String toString() => 'ProgressionRepositoryException: $message (${cause ?? ""})';
+  String toString() =>
+      'ProgressionRepositoryException: $message (${cause ?? ""})';
 }

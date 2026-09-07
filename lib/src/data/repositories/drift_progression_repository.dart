@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart';
 import '../../engine/miller_variables.dart';
 import '../../domain/repositories/progression_repository.dart';
 import '../drift/database.dart';
@@ -16,7 +15,8 @@ class DriftProgressionRepository implements ProgressionRepository {
     }
     try {
       final row = await (db.select(db.driftExerciseProgressions)
-        ..where((t) => t.exerciseId.equals(exerciseId))).getSingleOrNull();
+            ..where((t) => t.exerciseId.equals(exerciseId)))
+          .getSingleOrNull();
 
       if (row == null) return null;
 
@@ -33,7 +33,8 @@ class DriftProgressionRepository implements ProgressionRepository {
         lastPerformed: row.lastPerformed,
       );
     } catch (e) {
-      throw ProgressionRepositoryException('Failed to get progression for $exerciseId', e);
+      throw ProgressionRepositoryException(
+          'Failed to get progression for $exerciseId', e);
     }
   }
 
@@ -44,19 +45,20 @@ class DriftProgressionRepository implements ProgressionRepository {
     }
     try {
       await db.into(db.driftExerciseProgressions).insertOnConflictUpdate(
-        DriftExerciseProgression(
-          exerciseId: progression.exerciseId,
-          loadVal: progression.variables.load,
-          bodyPosition: progression.variables.bodyPosition,
-          rom: progression.variables.rom,
-          height: progression.variables.height,
-          tempo: progression.variables.tempo,
-          competencyLevel: progression.competencyLevel,
-          lastPerformed: progression.lastPerformed,
-        ),
-      );
+            DriftExerciseProgression(
+              exerciseId: progression.exerciseId,
+              loadVal: progression.variables.load,
+              bodyPosition: progression.variables.bodyPosition,
+              rom: progression.variables.rom,
+              height: progression.variables.height,
+              tempo: progression.variables.tempo,
+              competencyLevel: progression.competencyLevel,
+              lastPerformed: progression.lastPerformed,
+            ),
+          );
     } catch (e) {
-      throw ProgressionRepositoryException('Failed to save progression for ${progression.exerciseId}', e);
+      throw ProgressionRepositoryException(
+          'Failed to save progression for ${progression.exerciseId}', e);
     }
   }
 
@@ -65,18 +67,20 @@ class DriftProgressionRepository implements ProgressionRepository {
     try {
       final rows = await db.select(db.driftExerciseProgressions).get();
 
-      return rows.map((row) => ExerciseProgression(
-        exerciseId: row.exerciseId,
-        variables: MillerVariables(
-          load: row.loadVal,
-          bodyPosition: row.bodyPosition,
-          rom: row.rom,
-          height: row.height,
-          tempo: row.tempo,
-        ),
-        competencyLevel: row.competencyLevel,
-        lastPerformed: row.lastPerformed,
-      )).toList();
+      return rows
+          .map((row) => ExerciseProgression(
+                exerciseId: row.exerciseId,
+                variables: MillerVariables(
+                  load: row.loadVal,
+                  bodyPosition: row.bodyPosition,
+                  rom: row.rom,
+                  height: row.height,
+                  tempo: row.tempo,
+                ),
+                competencyLevel: row.competencyLevel,
+                lastPerformed: row.lastPerformed,
+              ))
+          .toList();
     } catch (e) {
       throw ProgressionRepositoryException('Failed to get all progressions', e);
     }
@@ -89,10 +93,12 @@ class DriftProgressionRepository implements ProgressionRepository {
     }
     try {
       final row = await (db.select(db.driftStatusAchieved)
-        ..where((t) => t.status.equals(status))).getSingleOrNull();
+            ..where((t) => t.status.equals(status)))
+          .getSingleOrNull();
       return row?.achievedDate;
     } catch (e) {
-      throw ProgressionRepositoryException('Failed to get status achieved date for $status', e);
+      throw ProgressionRepositoryException(
+          'Failed to get status achieved date for $status', e);
     }
   }
 
@@ -103,13 +109,14 @@ class DriftProgressionRepository implements ProgressionRepository {
     }
     try {
       await db.into(db.driftStatusAchieved).insertOnConflictUpdate(
-        DriftStatusAchievedData(
-          status: status,
-          achievedDate: date,
-        ),
-      );
+            DriftStatusAchievedData(
+              status: status,
+              achievedDate: date,
+            ),
+          );
     } catch (e) {
-      throw ProgressionRepositoryException('Failed to save status achieved date for $status', e);
+      throw ProgressionRepositoryException(
+          'Failed to save status achieved date for $status', e);
     }
   }
 }

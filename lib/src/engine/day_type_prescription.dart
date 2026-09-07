@@ -54,28 +54,33 @@ class DayTypePrescription {
         // an RPE 9 target here is expected to trigger the 48h recovery lock on the
         // trained movement pattern once reported, which is the intended safety behavior.
         // 5 sets: standard heavy-day volume (e.g. 5x5-style) for a low-rep zone.
-        return const DayTypePrescription(reps: 4, minReps: 1, maxReps: 5, targetRpe: 9, setsCount: 5);
+        return const DayTypePrescription(
+            reps: 4, minReps: 1, maxReps: 5, targetRpe: 9, setsCount: 5);
       case DayType.moderate:
         // Hypertrophy / Metabolic Stress focus (8-12 RM). setsCount unchanged from
         // the prior flat default, preserving first-workout behavior exactly.
-        return const DayTypePrescription(reps: 10, minReps: 8, maxReps: 12, targetRpe: 8, setsCount: 4);
+        return const DayTypePrescription(
+            reps: 10, minReps: 8, maxReps: 12, targetRpe: 8, setsCount: 4);
       case DayType.power:
         // Rate of Force Development focus: low reps, but submaximal effort —
         // explosive/RFD work is intentionally not trained to failure, since
         // grinding reps degrades bar/movement speed, the actual training target.
         // 5 sets: more sets accumulate quality explosive reps without approaching failure.
-        return const DayTypePrescription(reps: 4, minReps: 3, maxReps: 5, targetRpe: 7, setsCount: 5);
+        return const DayTypePrescription(
+            reps: 4, minReps: 3, maxReps: 5, targetRpe: 7, setsCount: 5);
       case DayType.veryLight:
         // Local Muscular Endurance focus (15-20+ RM). maxReps is capped at 20 as a
         // concrete stand-in for the open-ended "20+" zone described in DayType's docs.
         // 3 sets: each set is already long/fatiguing at this rep range, so fewer are needed.
-        return const DayTypePrescription(reps: 18, minReps: 15, maxReps: 20, targetRpe: 7, setsCount: 3);
+        return const DayTypePrescription(
+            reps: 18, minReps: 15, maxReps: 20, targetRpe: 7, setsCount: 3);
       case DayType.highLactic:
         // Metabolic Buffering (Circuits/EMOM): not an RM-zone prescription at all.
         // The generator overrides reps/minReps/maxReps/targetRpe for this DayType
         // using IntensityTechniques.generateEmomRepCount instead; only setsCount
         // (read here as "EMOM rounds per exercise") is actually used from this entry.
-        return const DayTypePrescription(reps: 10, minReps: 10, maxReps: 10, targetRpe: 7, setsCount: 6);
+        return const DayTypePrescription(
+            reps: 10, minReps: 10, maxReps: 10, targetRpe: 7, setsCount: 6);
     }
   }
 }
