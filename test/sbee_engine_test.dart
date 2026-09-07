@@ -169,6 +169,32 @@ void main() {
         expect(set.maxReps, equals(12));
         expect(set.targetRpe, equals(8));
       }
+      // moderate's setsCount (4) unchanged from the prior flat default: 4 sets per exercise.
+      expect(workout.sets.where((s) => s.exerciseId == 'A').length, equals(4));
+      expect(workout.sets.where((s) => s.exerciseId == 'B').length, equals(4));
+    });
+
+    test('generateNextWorkout uses DayType-driven setsCount, not a flat default', () async {
+      final now = DateTime.now();
+      // Seed one completed moderate session so the DUP rotation schedules veryHeavy next.
+      await sessionRepo.saveSession(WorkoutSession(
+        id: 'prior_moderate_session',
+        startTime: now.subtract(const Duration(days: 2)),
+        endTime: now.subtract(const Duration(days: 2)).add(const Duration(minutes: 30)),
+        isCompleted: true,
+        dayType: DayType.moderate,
+      ));
+
+      final workout = await engine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: now,
+        availableEquipment: {Equipment.bands},
+      );
+
+      expect(workout.dayType, equals(DayType.veryHeavy));
+      // veryHeavy prescribes 5 sets per exercise, not the old flat default of 4.
+      expect(workout.sets.where((s) => s.exerciseId == 'A').length, equals(5));
+      expect(workout.sets.where((s) => s.exerciseId == 'B').length, equals(5));
     });
 
     test('generateNextWorkout uses EMOM-structured reps on highLactic days', () async {
@@ -199,6 +225,9 @@ void main() {
       // Neither exercise has prior progression, so competencyLevel defaults to
       // 1 (beginner): 20s max duration / 3s per rep = 6 reps.
       expect(workout.sets.first.reps, equals(6));
+      // highLactic prescribes 6 EMOM rounds per exercise.
+      expect(workout.sets.where((s) => s.exerciseId == 'A').length, equals(6));
+      expect(workout.sets.where((s) => s.exerciseId == 'B').length, equals(6));
     });
 
     test('Per-exercise competencyLevel is promoted after enough completed sets', () async {

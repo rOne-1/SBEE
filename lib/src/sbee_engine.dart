@@ -239,6 +239,9 @@ class SbeeEngine {
       currentTime: currentTime,
     );
 
+    // 3.5. Resolve the DayType's locked reps/RPE/setsCount prescription once.
+    final prescription = DayTypePrescription.forDayType(dayType);
+
     // 4. Select exercises corresponding to the scheduled training focus:
     //    - Filter out exercises whose movement patterns are locked under the 48h recovery gate.
     //    - Filter out exercises requiring equipment not present in availableEquipment.
@@ -279,9 +282,11 @@ class SbeeEngine {
     final H_pull = historySets.where((s) => s.movementPattern == MovementPattern.pulling).length;
     final H_push = historySets.where((s) => s.movementPattern == MovementPattern.pushing).length;
 
-    // Helper to calculate sets count for an exercise.
+    // Helper to calculate sets count for an exercise. Base count comes from the
+    // DayType's prescription (see DayTypePrescription.setsCount); deload and the
+    // female-wrapper minimum floor are then applied on top, unchanged from before.
     int calculateExerciseSetsCount(Exercise exercise) {
-      var count = 4;
+      var count = prescription.setsCount;
       if (isDeload) {
         count = (count / 2).ceil();
       }
@@ -378,11 +383,10 @@ class SbeeEngine {
 
       final setsCount = calculateExerciseSetsCount(exercise);
 
-      // Derive reps/RPE from the DayType's locked RM-zone prescription. highLactic
-      // is the exception: it prescribes an EMOM-structured rep count (see
-      // IntensityTechniques.generateEmomRepCount) keyed off the exercise's own
-      // competency level, rather than an RM-zone range.
-      final prescription = DayTypePrescription.forDayType(dayType);
+      // Derive reps/RPE from the DayType's locked RM-zone prescription (resolved
+      // once, above). highLactic is the exception: it prescribes an
+      // EMOM-structured rep count (see IntensityTechniques.generateEmomRepCount)
+      // keyed off the exercise's own competency level, rather than an RM-zone range.
       int setReps;
       int? setMinReps;
       int? setMaxReps;

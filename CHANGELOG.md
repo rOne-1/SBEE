@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- **Set volume (`setsCount`) now varies by `DayType`** instead of the same flat `4` sets used for every day-type. `DayTypePrescription` gained a `setsCount` field (veryHeavy: 5, moderate: 4, power: 5, veryLight: 3, highLactic: 6 EMOM rounds), applied as the new base before the existing deload-halving and female-wrapper minimum-floor adjustments.
+- Adds 2 new tests (51 total). See `doc/DECISIONS_LOG.md` Phase 4 for rationale.
+
 ## 0.2.0
 
 - **DayType-driven workout generation.** `generateNextWorkout` previously hardcoded `reps: 10, targetRpe: 8` for every set regardless of `DayType`. Added `DayTypePrescription`, the single source of truth mapping each `DayType`'s documented RM zone (e.g. `veryHeavy`: 1-5 RM) to a concrete reps/RPE prescription, and wired it into generation.

@@ -89,10 +89,12 @@ const DayTypePrescription({
   required int minReps,
   required int maxReps,
   required int targetRpe,
+  required int setsCount,
 });
 ```
 - **Static Constructor**: `static DayTypePrescription forDayType(DayType dayType)`
-- `highLactic`'s entry is a neutral placeholder never actually surfaced to a generated set — `generateNextWorkout` overrides its reps/RPE using `IntensityTechniques.generateEmomRepCount` instead, since `highLactic` is an EMOM structure, not an RM-zone prescription.
+- `highLactic`'s reps/minReps/maxReps/targetRpe are a neutral placeholder never actually surfaced to a generated set — `generateNextWorkout` overrides them using `IntensityTechniques.generateEmomRepCount` instead, since `highLactic` is an EMOM structure, not an RM-zone prescription. Its `setsCount` (read as "EMOM rounds per exercise") *is* used as-is.
+- `setsCount` is the base set count for the DayType, applied before the existing deload-halving and female-wrapper minimum-floor adjustments in `generateNextWorkout`.
 
 ### `Equipment` (Enum)
 Supported home and bodyweight training equipment options:

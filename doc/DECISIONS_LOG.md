@@ -56,6 +56,7 @@ Prior to this phase, `generateNextWorkout` scheduled a `DayType` label but never
 - **highLactic via EMOM, not an RM zone**: `highLactic` is excluded from the RM-zone model entirely. Its sets are generated via `IntensityTechniques.generateEmomRepCount(userLevel, secondsPerRep)` (a new generator counterpart to the pre-existing `validateEmomRepCount` validator, sharing the same level-duration table so the two can't drift apart), keyed off the exercise's own `competencyLevel` (1→'beginner', 2→'intermediate', 3→'advanced', default 'beginner'). `secondsPerRep` defaults to `3` — a documented assumption, not a measured value.
 - **Competency Progression (per-exercise)**: `ExerciseProgression.competencyLevel` is now derived inside `logSetPerformance` from that exercise's own completed-set history (sets with a non-null `reportedRpe`): promotes 1→2 at `8` completed sets, 2→3 at `20`. Monotonic — never lowers a level already reached.
 - **Whole-Account "Intermediate" Status (auto-detected)**: `generateNextWorkout` now checks, once per call, whether the account has `≥ 12` completed sessions **and** `≥ 14` days have elapsed since the very first completed session, and writes `saveStatusAchievedDate('Intermediate', currentTime)` exactly once (idempotent) the first time both are true. Requiring both a count and a day-spread (reusing the codebase's existing 14-day window convention) prevents a burst of same-day sessions from fast-tracking the status — consistent with the "calendar-day progression is strictly forbidden" philosophy already documented on `IntensityTechniques.canProgressTabata`.
+- **DayType-Driven Set Volume**: Before this decision, every exercise always generated the same flat `4` sets regardless of `DayType` (only deload-halving and the age-45+ female-wrapper floor could change it) — a `veryHeavy` day and a `veryLight` day produced the same set count, just with different reps/RPE after the change above. `DayTypePrescription` gained a `setsCount` field (table in §2 below), applied as the new base count in `generateNextWorkout`'s `calculateExerciseSetsCount` helper, with the existing deload-halving and female-wrapper floor logic applied on top unchanged.
 
 ---
 
@@ -80,13 +81,15 @@ SBEE maintains strict numeric boundaries across all calculations:
 
 ### DayType Prescription Table (Phase 4)
 
-| DayType | reps | minReps | maxReps | targetRpe | Notes |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `veryHeavy` | 4 | 1 | 5 | 9 | Near-maximal by design — expected to trigger the 48h recovery lock once reported. |
-| `moderate` | 10 | 8 | 12 | 8 | Matches the prior hardcoded default exactly, preserving first-workout behavior. |
-| `power` | 4 | 3 | 5 | 7 | Submaximal on purpose — RFD/explosive work is not trained to failure. |
-| `veryLight` | 18 | 15 | 20 | 7 | `maxReps` capped at 20 as a concrete stand-in for the open-ended "20+" zone. |
-| `highLactic` | EMOM-computed | = reps | = reps | 7 | Not an RM-zone prescription — see `IntensityTechniques.generateEmomRepCount`. |
+| DayType | reps | minReps | maxReps | targetRpe | setsCount | Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `veryHeavy` | 4 | 1 | 5 | 9 | 5 | Near-maximal by design — expected to trigger the 48h recovery lock once reported. More sets is standard practice for a low-rep heavy day. |
+| `moderate` | 10 | 8 | 12 | 8 | 4 | Matches the prior hardcoded default exactly, preserving first-workout behavior. |
+| `power` | 4 | 3 | 5 | 7 | 5 | Submaximal on purpose — RFD/explosive work is not trained to failure. More (shorter) sets accumulate quality explosive reps. |
+| `veryLight` | 18 | 15 | 20 | 7 | 3 | `maxReps` capped at 20 as a concrete stand-in for the open-ended "20+" zone. Fewer sets — each one is already long/fatiguing at this rep range. |
+| `highLactic` | EMOM-computed | = reps | = reps | 7 | 6 | Not an RM-zone prescription — see `IntensityTechniques.generateEmomRepCount`. `setsCount` here means "EMOM rounds per exercise." |
+
+`setsCount` is a base value: the existing deload-halving (rounded up, minimum 1) and age-45+ female-wrapper minimum-floor adjustments in `generateNextWorkout` are still applied on top of it, unchanged.
 
 ## 3. App-Specific Design Decisions
 
@@ -134,13 +137,13 @@ The current design of SBEE has the following known limitations and deferred impl
 
 ## 4.8. Versioning
 
-The current library version is `0.2.0`. All changes, database schema migrations, and feature additions are recorded in the [CHANGELOG.md](../CHANGELOG.md) in the repository root.
+The current library version is `0.3.0`. All changes, database schema migrations, and feature additions are recorded in the [CHANGELOG.md](../CHANGELOG.md) in the repository root.
 
 ---
 
 ## 5. Unedited Test Suite Logs
 
-Below is the complete, unedited list of the 49 unique tests verifying all components of the SBEE library.
+Below is the complete, unedited list of the 51 unique tests verifying all components of the SBEE library.
 
 ```
 14-Day Detraining Lockout Invariant (testing 1000 inputs)
@@ -149,11 +152,12 @@ Below is the complete, unedited list of the 49 unique tests verifying all compon
 AutoregulationEngine Tests Correctly adjusts Miller variables (Load > Pos > ROM > Height > Tempo)
 AutoregulationEngine Tests Correctly evaluates RPE differences
 AutoregulationEngine Tests Locks advanced tempo (level 2) if flag is false
-DayTypePrescription Tests every DayType returns a prescription with minReps <= reps <= maxReps
+DayTypePrescription Tests every DayType returns a prescription with minReps <= reps <= maxReps and a positive setsCount
 DayTypePrescription Tests veryHeavy prescribes the documented 1-5 RM neuromuscular zone
 DayTypePrescription Tests moderate prescribes the documented 8-12 RM hypertrophy zone
 DayTypePrescription Tests veryLight prescribes the documented 15-20+ RM endurance zone
 DayTypePrescription Tests power prescribes low reps at a submaximal (not-to-failure) RPE
+DayTypePrescription Tests setsCount varies by DayType instead of a flat default
 DetrainingLogic Tests Inactivity of >= 14 days triggers detraining
 DetrainingLogic Tests Locked out day-types under detraining status
 DetrainingLogic Tests Lockout Interaction Integration: 48h Recovery Lock + Detraining Lockout
@@ -186,6 +190,7 @@ SbeeEngine Tests Per-exercise competencyLevel is promoted after enough completed
 SbeeEngine Tests generateNextWorkout auto-detects Intermediate status once session-count and day-spread thresholds are met
 SbeeEngine Tests generateNextWorkout filters equipment, recovery locks, and joint-pain plyometrics
 SbeeEngine Tests generateNextWorkout prescribes DayType-driven reps/RPE instead of a hardcoded default
+SbeeEngine Tests generateNextWorkout uses DayType-driven setsCount, not a flat default
 SbeeEngine Tests generateNextWorkout uses EMOM-structured reps on highLactic days
 SbeeEngine Tests generateNextWorkout withholds Intermediate status below the session-count threshold
 SbeeEngine Tests logSetPerformance triggers DAG progression when maxed out and under-stimulated
