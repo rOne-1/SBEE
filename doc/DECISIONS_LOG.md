@@ -137,8 +137,27 @@ Drift persistence schema versions are tracked as follows:
 The current design of SBEE has the following known limitations and deferred implementation items:
 - **Kegel / Pelvic Floor Module**: Although endocrine and structural cues are generated, a dedicated, parameterized tracking module for Kegel or direct pelvic floor exercises was deferred and is not built in the current release.
 - **General-Population Set-Volume Floor Gap**: A general-population minimum set floor is not enforced globally inside [SafetyRules](../lib/src/engine/safety_rules.dart), leaving it at a default floor of `1` (which acts as a floor gap). The only active set floor constraint currently in place is the age 45+ wrapper override, which sets a minimum floor of `3`.
-- **Unverified Bibliography Source Warnings**: The physiological and cycle-based rules (such as menstrual cycle day offsets, endocrine Growth Hormone cues, and submaximal pacing VO2 max ranges) are based on research from the unverified bibliography, which remains subject to ongoing scientific consensus validation.
+- **Unverified Bibliography Source Warnings**: The physiological and cycle-based rules (such as menstrual cycle day offsets, endocrine Growth Hormone cues, and submaximal pacing VO2 max ranges) are based on research from the unverified bibliography, which remains subject to ongoing scientific consensus validation. See §4.6 for the complete, individually-cited list of every such claim.
 - **Test-Scale Exercise Dataset**: The default internal exercise structures used for validation are test-scale. Production scaling requires the host application database integration to load a full catalog.
+
+---
+
+## 4.6. Unverified Physiological Claims — Complete Enumeration
+
+All 8 methods in [`FemalePhysiologyWrapper`](../lib/src/engine/female_wrapper.dart) that are marked `UNVERIFIED-BIBLIOGRAPHY SOURCE` in their own doc comments. None of these have been checked against real, citable research literature — they are implemented and unit-tested for *internal consistency* (the code does what its comment says), not validated for *physiological accuracy*. Listed here in full, not just summarized, since this is exactly the kind of claim that needs to be checkable at a glance before anyone treats it as more than a documented assumption.
+
+| # | Method | File:Line | Claim |
+| :-- | :--- | :--- | :--- |
+| 1 | `getEndocrineExplanation()` | `female_wrapper.dart:31` | Frames female tissue adaptation/lipolysis as primarily driven by Growth Hormone (GH) pulsatility, in deliberate contrast to a testosterone-centric model. |
+| 2 | `adjustTargetRpe()` | `female_wrapper.dart:38` | During cycle days 1–3 (early follicular) for an `Untrained_Female`, reduces target RPE by exactly `1`. |
+| 3 | `adjustRestInterval()` | `female_wrapper.dart:56` | Conditioning rest defaults to `45s` (within a claimed 30–45s range); heavy strength rest defaults to `2m30s` (within a claimed 2–3min range); early-follicular days add a further `+30s` rest for `Untrained_Female`. |
+| 4 | `getConditioningTargetVo2Max()` | `female_wrapper.dart:85` | Steady-state conditioning should target `55%–65%` of VO2 max. |
+| 5 | `getCorrectiveCues()` | `female_wrapper.dart:97` | Knee discomfort should trigger "McGill Big 3" and "Side Plank with Hip Abduction" cues, plus a `12–15` rep floor for lower-body sets. |
+| 6 | `adjustIntensityMetric()` | `female_wrapper.dart:128` | Age ≥ 45 should replace 1RM-based intensity with a `2–3 RIR` (Reps in Reserve) target. |
+| 7 | `adjustMinSets()` | `female_wrapper.dart:141` | Age ≥ 45 should mandate a minimum floor of `3` sets per movement pattern. |
+| 8 | `isPlyometricsAllowed()` | `female_wrapper.dart:154` | Age ≥ 45 **and** reported joint pain together should gate out plyometric exercises entirely. |
+
+**What would actually close this**, in order of rigor: (a) a sports-science/kinesiology-literate reviewer checking each numbered claim above against real citable sources and either confirming, correcting, or removing it; or (b) short of that, an explicit "informational, not medical advice" disclaimer surfaced to end users in the host app, so the gap is disclosed rather than silently implied to be settled science. A general web research pass can surface candidate literature but cannot by itself close claims this specific and this safety-adjacent — treat any such pass as a lead-generation step for a real reviewer, not a verification.
 
 ---
 
