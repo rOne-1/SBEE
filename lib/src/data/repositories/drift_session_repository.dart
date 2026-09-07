@@ -287,48 +287,54 @@ class DriftSessionRepository implements SessionRepository {
 
   @override
   Future<DateTime?> getEarliestCompletedSessionStart() async {
+    final DateTime? earliest;
     try {
       final minStart = db.driftWorkoutSessions.startTime.min();
       final query = db.selectOnly(db.driftWorkoutSessions)
         ..addColumns([minStart])
         ..where(db.driftWorkoutSessions.isCompleted.equals(true));
       final row = await query.getSingle();
-      return row.read(minStart);
+      earliest = row.read(minStart);
     } catch (e) {
       throw SessionRepositoryException(
           'Failed to query earliest completed session start', e);
     }
+    return earliest;
   }
 
   @override
   Future<int> getCompletedSessionCount() async {
+    final int? count;
     try {
-      final count = db.driftWorkoutSessions.id.count();
+      final countExpr = db.driftWorkoutSessions.id.count();
       final query = db.selectOnly(db.driftWorkoutSessions)
-        ..addColumns([count])
+        ..addColumns([countExpr])
         ..where(db.driftWorkoutSessions.isCompleted.equals(true));
       final row = await query.getSingle();
-      return row.read(count) ?? 0;
+      count = row.read(countExpr);
     } catch (e) {
       throw SessionRepositoryException(
           'Failed to query completed session count', e);
     }
+    return count ?? 0;
   }
 
   @override
   Future<int> getReportedSetCountForExercise(String exerciseId) async {
+    final int? count;
     try {
-      final count = db.driftWorkoutSets.id.count();
+      final countExpr = db.driftWorkoutSets.id.count();
       final query = db.selectOnly(db.driftWorkoutSets)
-        ..addColumns([count])
+        ..addColumns([countExpr])
         ..where(db.driftWorkoutSets.exerciseId.equals(exerciseId) &
             db.driftWorkoutSets.reportedRpe.isNotNull());
       final row = await query.getSingle();
-      return row.read(count) ?? 0;
+      count = row.read(countExpr);
     } catch (e) {
       throw SessionRepositoryException(
           'Failed to query completed set count for exercise $exerciseId', e);
     }
+    return count ?? 0;
   }
 
   @override
