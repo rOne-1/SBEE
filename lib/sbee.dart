@@ -1,5 +1,5 @@
 /// Core Science-Based Exercise Engine (SBEE) library.
-library sbee;
+library;
 
 // Facade Engine
 export 'src/sbee_engine.dart';
@@ -13,6 +13,7 @@ export 'src/domain/models/movement_pattern.dart';
 export 'src/domain/models/rpe_scale.dart';
 export 'src/domain/models/workout_session.dart';
 export 'src/engine/miller_variables.dart';
+export 'src/engine/day_type_prescription.dart';
 export 'src/domain/progression/exercise_graph.dart';
 export 'src/domain/repositories/progression_repository.dart' show ExerciseProgression;
 
@@ -28,7 +29,7 @@ export 'src/domain/repositories/progression_repository.dart';
 
 // FSM Session Management
 export 'src/engine/session_state_machine.dart' show SessionState;
-export 'src/engine/session_stream.dart' show SessionStreamManager, WorkoutSessionState;
+export 'src/engine/session_stream.dart' show SessionStreamManager, SessionProgressState;
 
 // Drift Reference Implementation
 export 'src/data/drift/database.dart' show SbeeDatabase;

@@ -2,6 +2,9 @@
 
 This guide describes how to integrate the Science-Based Exercise Engine (SBEE) into a host application. It covers library setup, bootstrapping the exercise progression graph, generating periodized workouts, wiring reactive streams to UI components, managing active workouts, and handling exceptions.
 
+> [!NOTE]
+> SBEE is designed to be integrated by **multiple, independently-themed host applications at once** — it is not built for or coupled to any single app. Nothing in this guide, and nothing in the library itself, should assume there is only one consumer. Each host application supplies its own exercise catalog, theming, and branding (see §9, Extension & Reskin Guide); SBEE only ever sees generic domain concepts (`DayType`, `MovementPattern`, `FocusCategory`, `Equipment`).
+
 ---
 
 ## 1. Setup & Persistence Registration
@@ -357,7 +360,7 @@ try {
 
 ## 9. Extension & Reskin Guide
 
-A generic application extending, wrapping, or reskinning the SBEE library should follow these implementation steps to adapt the engine to their ecosystem:
+This section is not a hypothetical — supporting multiple, differently-themed host applications on the same engine is the actual design goal of SBEE, not an incidental possibility. Any application extending, wrapping, or reskinning the SBEE library should follow these implementation steps to adapt the engine to their ecosystem:
 
 ### A. Implementing Custom Database Repositories
 If the host application chooses not to use the reference Drift database implementation, it must implement the `ProgressionRepository` and `SessionRepository` interfaces to connect to their own database structure (such as Firebase, Hive, or custom REST APIs):

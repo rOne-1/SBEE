@@ -2,6 +2,8 @@
 
 SBEE is a pure-Dart exercise progression and scheduling engine designed for resistance training. It features undulating periodization, deload schedules, autoregulated bio-mechanic adjustments (Kenneth Miller's 5-variable progression), safety lockouts, female physiology wrappers, and return-to-training (detraining) safety gates.
 
+SBEE is intentionally app-agnostic: it carries no UI, no theming, and no branding of its own, and is designed to run underneath multiple independent host applications with entirely different visual identities and content catalogs. Any app-specific naming, lore, or exercise content belongs in the host application, not in this library — see [Never Do This: Critical Anti-Patterns](doc/INTEGRATION_GUIDE.md#10-never-do-this-critical-anti-patterns).
+
 ---
 
 ## Documentation Index
@@ -18,10 +20,10 @@ Explore the comprehensive technical documentation for SBEE:
 
 The curated public API (`package:sbee/sbee.dart`) exposes:
 - **Orchestrator Facade**: `SbeeEngine`
-- **Domain Models**: `DayType`, `Equipment`, `Exercise`, `FocusCategory`, `MovementPattern`, `RpeInfo`, `WorkoutSession`, `WorkoutSet`, `MillerVariables`, and `ExerciseGraph`.
+- **Domain Models**: `DayType`, `Equipment`, `Exercise`, `FocusCategory`, `MovementPattern`, `RpeInfo`, `WorkoutSession`, `WorkoutSet`, `MillerVariables`, `DayTypePrescription`, and `ExerciseGraph`.
 - **Female Physiology Profile**: `FemaleProfile`, `FemalePhysiologyWrapper`.
 - **Named Intensity Techniques**: `IntensityTechniques`, `ClusterSetsStructure`, `RestPauseStructure`, `MyoRepsStructure`.
-- **FSM State Management**: `SessionState`, `SessionStreamManager`, `WorkoutSessionState`.
+- **FSM State Management**: `SessionState`, `SessionStreamManager`, `SessionProgressState`.
 - **Drift Database Reference**: `SbeeDatabase`, `DriftSessionRepository`, `DriftProgressionRepository`.
 
 Internal engine details (such as `AutoregulationEngine`, `SafetyRules`, `PeriodizationScheduler`, and `DetrainingLogic`) are kept private within `src/` to preserve architecture boundaries.

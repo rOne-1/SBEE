@@ -8,7 +8,7 @@ Welcome to the Science-Based Exercise Engine (SBEE) Architecture Guide. This doc
 
 SBEE is built as a **pure-Dart library** focused on resistance training prescription, scheduling, and autoregulation. Its design is governed by the following core principles:
 
-1. **Decoupled Core Logic**: The core mathematical rules of periodization, safety gates, and autoregulation are completely independent of any UI or environment specifics. This ensures the library remains portable, fast, and easily testable.
+1. **Decoupled Core Logic**: The core mathematical rules of periodization, safety gates, and autoregulation are completely independent of any UI or environment specifics. This ensures the library remains portable, fast, and easily testable, and lets SBEE run as the shared training engine underneath multiple, independently-themed host applications simultaneously — not just one. No app-specific naming, branding, lore, or exercise content is permitted inside SBEE itself; those concerns live entirely on the host-application side (see [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) §9's Extension & Reskin Guide).
 2. **Deterministic & Safe**: Progression rules, such as Kenneth Miller's 5-variable progression sequence and push-to-pull ratios, are strictly validated. Biomechanical safety invariants are enforced at the type level where possible, and guarded by assertions.
 3. **Graph-Driven Tiering**: Exercise progressions are modeled as a Directed Acyclic Graph (DAG). This approach avoids circular progression traps and allows logical, step-by-step scaling of exercises.
 4. **Adaptive Customizations**: Physiological adaptations (such as menstrual cycle day offsets or age-specific set volume overrides) pre-process input parameters before they enter the core logic, or decorate output results. This isolates host-specific or population-specific logic from the primary engine.
@@ -147,7 +147,7 @@ To ensure musculoskeletal health and postural alignment, SBEE enforces a strict 
 SBEE relies on **Drift** (a reactive persistence library for Dart/Flutter backed by SQLite) to maintain persistent state. The schema is organized into four main tables:
 
 1. **`DriftWorkoutSessions`**: Persists metadata for generated and completed sessions (start time, completion status, day type).
-2. **`DriftWorkoutSets`**: Persists log details for every individual set, including reps completed, target RPE, reported RPE, rest duration, corrective cues, and the specific Kenneth Miller variables applied during that set.
+2. **`DriftWorkoutSets`**: Persists log details for every individual set, including reps completed, the prescribed min/max rep-range, target RPE, reported RPE, rest duration, corrective cues, and the specific Kenneth Miller variables applied during that set.
 3. **`DriftExerciseProgressions`**: Tracks the user's current progress parameters (Miller variables) and competency levels for each individual exercise ID.
 4. **`DriftStatusAchieved`**: Tracks milestone dates (e.g. the date the user achieved 'Intermediate' status) which are used to unlock advanced features like slow-tempo variations.
 
