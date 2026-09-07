@@ -1,6 +1,6 @@
 name: sbee
 description: Science-Based Exercise Engine (SBEE) core library.
-version: 0.1.0
+version: 0.2.0
 publish_to: none
 
 environment:
@@ -17,3 +17,4 @@ dev_dependencies:
   drift_dev: ^2.20.0
   test: ^1.25.2
   glados: ^1.1.7
+  lints: ^6.1.0

@@ -81,6 +81,19 @@ Represents the five day-types for Daily Undulating Periodization (DUP):
 - `DayType.veryLight`: Local Muscular Endurance focus (15–20+ RM)
 - `DayType.highLactic`: Metabolic Buffering (Circuits, EMOM)
 
+### `DayTypePrescription` (Class)
+The locked reps/RPE prescription for a given [DayType](../lib/src/domain/models/day_type.dart), translating its documented RM zone into concrete generation values. See `doc/DECISIONS_LOG.md` §2 for the full table and rationale.
+```dart
+const DayTypePrescription({
+  required int reps,
+  required int minReps,
+  required int maxReps,
+  required int targetRpe,
+});
+```
+- **Static Constructor**: `static DayTypePrescription forDayType(DayType dayType)`
+- `highLactic`'s entry is a neutral placeholder never actually surfaced to a generated set — `generateNextWorkout` overrides its reps/RPE using `IntensityTechniques.generateEmomRepCount` instead, since `highLactic` is an EMOM structure, not an RM-zone prescription.
+
 ### `Equipment` (Enum)
 Supported home and bodyweight training equipment options:
 - `Equipment.pullUpBar`
@@ -158,6 +171,8 @@ const WorkoutSet({
   required MovementPattern movementPattern,
   required int setNumber,
   required int reps,
+  int? minReps, // Prescribed rep-range floor. Null if not generated from a ranged prescription.
+  int? maxReps, // Prescribed rep-range ceiling. Null if not generated from a ranged prescription.
   required int targetRpe,
   int? reportedRpe, // Null until completed and logged
   required MillerVariables variables,
@@ -166,6 +181,9 @@ const WorkoutSet({
   List<String> cues = const [],
 });
 ```
+- **`reps`**: A single representative rep count — the DayType's prescribed default before a set is logged, and the actual performed rep count once logged (via `SessionStreamManager.logCurrentSet`).
+- **`minReps`/`maxReps`**: The prescribed rep-range bounds from `DayTypePrescription`, when the set was generated from a ranged prescription (`highLactic` sets set both equal to a single EMOM-computed rep count rather than a true range).
+- **`hasRepRange`** (getter): `true` if both `minReps` and `maxReps` are non-null.
 
 ### `WorkoutSession` (Class)
 Represents a structured collection of workout sets scheduled for execution.
@@ -326,6 +344,16 @@ static bool validateEmomRepCount({
   - `beginner`: Max work duration $20\text{s}$
   - `intermediate`: Max work duration $30\text{s}$
   - `advanced`: Max work duration $40\text{s}$
+
+#### `generateEmomRepCount`
+Generates a compliant EMOM rep count for a given user level: the largest rep count whose total work duration does not exceed that level's max threshold (shares the same duration table as `validateEmomRepCount`, so the two cannot drift apart). Always returns at least `1`. Used by `generateNextWorkout` to prescribe `highLactic` day sets.
+```dart
+static int generateEmomRepCount({
+  required String userLevel,
+  int secondsPerRep = 3,
+});
+```
+- **Throws**: `ArgumentError` if `userLevel` is not one of `beginner`/`intermediate`/`advanced`, or if `secondsPerRep` is not positive.
 
 #### `canProgressTabata`
 Determines if a user has met the hybrid progression gate criteria to move to the next Tabata training phase.

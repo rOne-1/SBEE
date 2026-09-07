@@ -5,7 +5,7 @@ import 'package:sbee/sbee.dart';
 
 void main() {
   group('Drift Database Migration Tests', () {
-    test('Upgrade path from schema version 1 to 3 runs successfully', () async {
+    test('Upgrade path from schema version 1 to 4 runs successfully', () async {
       // 1. Open a raw in-memory sqlite3 database
       final rawDb = sqlite3.openInMemory();
 
@@ -85,8 +85,10 @@ void main() {
       columnNames = columns.map((row) => row['name'] as String).toList();
       expect(columnNames, contains('rest_duration_seconds'));
       expect(columnNames, contains('cues_json'));
+      expect(columnNames, contains('min_reps'));
+      expect(columnNames, contains('max_reps'));
 
-      // 5. Test inserts and reads into the version 3 columns via repositories
+      // 5. Test inserts and reads into the version 3/4 columns via repositories
       final sessionRepo = DriftSessionRepository(db);
       final now = DateTime.now();
       final testSession = WorkoutSession(
@@ -105,6 +107,8 @@ void main() {
             movementPattern: MovementPattern.pushing,
             setNumber: 1,
             reps: 5,
+            minReps: 1,
+            maxReps: 5,
             targetRpe: 9,
             variables: const MillerVariables(),
             timestamp: now,
@@ -124,6 +128,8 @@ void main() {
       expect(retrieved.sets.length, equals(1));
       expect(retrieved.sets.first.restDuration, equals(const Duration(seconds: 45)));
       expect(retrieved.sets.first.cues, contains('Test Cue 1'));
+      expect(retrieved.sets.first.minReps, equals(1));
+      expect(retrieved.sets.first.maxReps, equals(5));
 
       await db.close();
     });

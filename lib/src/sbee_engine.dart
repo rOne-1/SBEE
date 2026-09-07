@@ -14,6 +14,8 @@ import 'engine/scheduler.dart';
 import 'engine/detraining.dart';
 import 'engine/safety_rules.dart';
 import 'engine/autoregulation.dart';
+import 'engine/day_type_prescription.dart';
+import 'engine/intensity_techniques.dart';
 
 /// The central SBEE orchestrator facade coordinating periodization, deload,
 /// safety rules, female physiology wrappers, and DAG progression traversals.
@@ -21,6 +23,30 @@ class SbeeEngine {
   final SessionRepository sessionRepository;
   final ProgressionRepository progressionRepository;
   final ExerciseGraph exerciseGraph;
+
+  /// APP-SPECIFIC DESIGN DECISION: Competency Progression Thresholds
+  /// Per-exercise `competencyLevel` (1=Beginner, 2=Intermediate, 3=Advanced) was
+  /// previously a dead field: stored and copied forward on every save, but never
+  /// computed or read for behavior. These thresholds give it a real, effort-based
+  /// (not calendar-based) progression rule, and feed [IntensityTechniques]'s EMOM
+  /// generation with a real userLevel.
+  static const int competencyIntermediateSetThreshold = 8;
+  static const int competencyAdvancedSetThreshold = 20;
+
+  /// APP-SPECIFIC DESIGN DECISION: Whole-Account "Intermediate" Status Detection
+  /// `saveStatusAchievedDate('Intermediate')` was previously never called by
+  /// anything, meaning the documented 21-day advanced-tempo unlock gate in
+  /// `logSetPerformance` could never actually trigger. "Intermediate" is now
+  /// auto-detected here, requiring both a real completed-session count and a
+  /// minimum elapsed-days spread (reusing the codebase's existing 14-day window
+  /// convention) so a burst of sessions in a single day can't fast-track it —
+  /// consistent with the "calendar-day progression is strictly forbidden"
+  /// philosophy already documented on `IntensityTechniques.canProgressTabata`.
+  static const int intermediateStatusSessionThreshold = 12;
+  static const int intermediateStatusMinDays = 14;
+
+  /// Default work-to-rep pacing assumed for EMOM generation on `highLactic` days.
+  static const int emomSecondsPerRep = 3;
 
   SbeeEngine({
     required this.sessionRepository,
@@ -65,6 +91,21 @@ class SbeeEngine {
         ? FemalePhysiologyWrapper.adjustTargetRpe(originalTargetRpe: targetRpe, profile: femaleProfile)
         : targetRpe;
 
+    // 2.5. Derive this exercise's competency level from its completed-set history.
+    // Monotonic: a competency level, once reached, is never lowered by this check.
+    final loggedSets = await sessionRepository.getSetsInDateRange(DateTime(1970), DateTime.now());
+    final completedSetCount = loggedSets
+        .where((s) => s.exerciseId == exerciseId && s.reportedRpe != null)
+        .length;
+    var derivedCompetencyLevel = 1;
+    if (completedSetCount >= competencyAdvancedSetThreshold) {
+      derivedCompetencyLevel = 3;
+    } else if (completedSetCount >= competencyIntermediateSetThreshold) {
+      derivedCompetencyLevel = 2;
+    }
+    final newCompetencyLevel =
+        derivedCompetencyLevel > prog.competencyLevel ? derivedCompetencyLevel : prog.competencyLevel;
+
     // 3. Query Intermediate status date via progressionRepository. If achieved > 21 days ago, set isAdvancedTempoUnlocked = true.
     final intermediateDate = await progressionRepository.getStatusAchievedDate('Intermediate');
     final bool isAdvancedTempoUnlocked = intermediateDate != null &&
@@ -103,11 +144,15 @@ class SbeeEngine {
         final newProg = ExerciseProgression(
           exerciseId: nextExercise.id,
           variables: baseVars,
-          competencyLevel: prog.competencyLevel,
+          competencyLevel: newCompetencyLevel,
           lastPerformed: DateTime.now(),
         );
         await progressionRepository.saveProgression(newProg);
-        await progressionRepository.saveProgression(prog.copyWith(variables: nextVars, lastPerformed: DateTime.now()));
+        await progressionRepository.saveProgression(prog.copyWith(
+          variables: nextVars,
+          competencyLevel: newCompetencyLevel,
+          lastPerformed: DateTime.now(),
+        ));
         return baseVars;
       }
     }
@@ -127,17 +172,25 @@ class SbeeEngine {
         final newProg = ExerciseProgression(
           exerciseId: prevExercise.id,
           variables: maxVars,
-          competencyLevel: prog.competencyLevel,
+          competencyLevel: newCompetencyLevel,
           lastPerformed: DateTime.now(),
         );
         await progressionRepository.saveProgression(newProg);
-        await progressionRepository.saveProgression(prog.copyWith(variables: nextVars, lastPerformed: DateTime.now()));
+        await progressionRepository.saveProgression(prog.copyWith(
+          variables: nextVars,
+          competencyLevel: newCompetencyLevel,
+          lastPerformed: DateTime.now(),
+        ));
         return maxVars;
       }
     }
 
     // Save updated progression and variables, then return.
-    final updatedProg = prog.copyWith(variables: nextVars, lastPerformed: DateTime.now());
+    final updatedProg = prog.copyWith(
+      variables: nextVars,
+      competencyLevel: newCompetencyLevel,
+      lastPerformed: DateTime.now(),
+    );
     await progressionRepository.saveProgression(updatedProg);
     return nextVars;
   }
@@ -155,6 +208,20 @@ class SbeeEngine {
     final completedSessions = await sessionRepository
         .getSessionsInDateRange(DateTime(1970), currentTime)
         .then((list) => list.where((s) => s.isCompleted).toList());
+
+    // 1.5. Auto-detect whole-account "Intermediate" status (idempotent: written once).
+    // Feeds the 21-day advanced-tempo unlock gate checked in logSetPerformance.
+    if (completedSessions.length >= intermediateStatusSessionThreshold) {
+      final existingIntermediateDate = await progressionRepository.getStatusAchievedDate('Intermediate');
+      if (existingIntermediateDate == null) {
+        final sortedByStart = List<WorkoutSession>.from(completedSessions)
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
+        final daysSinceFirstSession = currentTime.difference(sortedByStart.first.startTime).inDays;
+        if (daysSinceFirstSession >= intermediateStatusMinDays) {
+          await progressionRepository.saveStatusAchievedDate('Intermediate', currentTime);
+        }
+      }
+    }
 
     // 2. Determine DayType. Apply detraining lock if inactivity >= 14 days (moderate redirect).
     var dayType = PeriodizationScheduler.getNextDayType(completedSessions);
@@ -311,8 +378,39 @@ class SbeeEngine {
 
       final setsCount = calculateExerciseSetsCount(exercise);
 
-      // Generate WorkoutSets. If deload is active, cap targetRpe at 6.
-      var targetRpeForSet = 8;
+      // Derive reps/RPE from the DayType's locked RM-zone prescription. highLactic
+      // is the exception: it prescribes an EMOM-structured rep count (see
+      // IntensityTechniques.generateEmomRepCount) keyed off the exercise's own
+      // competency level, rather than an RM-zone range.
+      final prescription = DayTypePrescription.forDayType(dayType);
+      int setReps;
+      int? setMinReps;
+      int? setMaxReps;
+      int targetRpeForSet;
+      var dayTypeCues = const <String>[];
+
+      if (dayType == DayType.highLactic) {
+        final competencyLevel = prog?.competencyLevel ?? 1;
+        final userLevel = competencyLevel >= 3
+            ? 'advanced'
+            : (competencyLevel == 2 ? 'intermediate' : 'beginner');
+        final emomReps = IntensityTechniques.generateEmomRepCount(
+          userLevel: userLevel,
+          secondsPerRep: emomSecondsPerRep,
+        );
+        setReps = emomReps;
+        setMinReps = emomReps;
+        setMaxReps = emomReps;
+        targetRpeForSet = prescription.targetRpe;
+        dayTypeCues = ['EMOM Structure: Complete $emomReps reps at the top of each minute.'];
+      } else {
+        setReps = prescription.reps;
+        setMinReps = prescription.minReps;
+        setMaxReps = prescription.maxReps;
+        targetRpeForSet = prescription.targetRpe;
+      }
+
+      // If deload is active, cap targetRpe at 6 regardless of DayType prescription.
       if (isDeload) {
         targetRpeForSet = 6;
       }
@@ -334,9 +432,10 @@ class SbeeEngine {
           : const Duration(seconds: 90);
 
       // Append pelvic/spine safety cues and joint check flags to set instructions.
-      final cues = femaleProfile != null
+      final baseCues = femaleProfile != null
           ? FemalePhysiologyWrapper.getCorrectiveCues(exerciseName: exercise.name, profile: femaleProfile)
           : exercise.defaultCues;
+      final cues = [...baseCues, ...dayTypeCues];
 
       for (var setNum = 1; setNum <= setsCount; setNum++) {
         sets.add(WorkoutSet(
@@ -345,7 +444,9 @@ class SbeeEngine {
           exerciseId: exercise.id,
           movementPattern: exercise.movementPattern,
           setNumber: setNum,
-          reps: 10,
+          reps: setReps,
+          minReps: setMinReps,
+          maxReps: setMaxReps,
           targetRpe: targetRpeForSet,
           variables: vars,
           timestamp: currentTime,

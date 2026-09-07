@@ -93,33 +93,47 @@ class IntensityTechniques {
   }
 
   /// SYNTHESIZED DESIGN DECISION: EMOM Work-Duration Constraints
-  /// Prevents users from selecting rep counts exceeding level-specific work-duration thresholds:
+  /// Level-specific maximum EMOM work-duration thresholds, shared by both
+  /// [validateEmomRepCount] and [generateEmomRepCount] so the two never drift apart:
   /// - Beginner: Max work duration 20s
   /// - Intermediate: Max work duration 30s
   /// - Advanced: Max work duration 40s
+  static int _maxEmomWorkDurationSeconds(String userLevel) {
+    switch (userLevel.toLowerCase()) {
+      case 'beginner':
+        return 20;
+      case 'intermediate':
+        return 30;
+      case 'advanced':
+        return 40;
+      default:
+        throw ArgumentError('Invalid user level: $userLevel');
+    }
+  }
+
+  /// Validates that the selected rep count does not exceed level-specific work-duration thresholds.
   static bool validateEmomRepCount({
     required int reps,
     required int secondsPerRep,
     required String userLevel,
   }) {
     final workDuration = reps * secondsPerRep;
-    final int maxAllowedDuration;
+    return workDuration <= _maxEmomWorkDurationSeconds(userLevel);
+  }
 
-    switch (userLevel.toLowerCase()) {
-      case 'beginner':
-        maxAllowedDuration = 20;
-        break;
-      case 'intermediate':
-        maxAllowedDuration = 30;
-        break;
-      case 'advanced':
-        maxAllowedDuration = 40;
-        break;
-      default:
-        throw ArgumentError('Invalid user level: $userLevel');
+  /// Generates a compliant EMOM rep count for [userLevel]: the largest rep count
+  /// whose total work duration (`reps * secondsPerRep`) does not exceed that
+  /// level's max EMOM work-duration threshold. Always returns at least 1.
+  static int generateEmomRepCount({
+    required String userLevel,
+    int secondsPerRep = 3,
+  }) {
+    if (secondsPerRep <= 0) {
+      throw ArgumentError('secondsPerRep must be positive.');
     }
-
-    return workDuration <= maxAllowedDuration;
+    final maxDuration = _maxEmomWorkDurationSeconds(userLevel);
+    final reps = maxDuration ~/ secondsPerRep;
+    return reps < 1 ? 1 : reps;
   }
 
   /// Tabata hybrid progression gate logic.

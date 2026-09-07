@@ -24,6 +24,8 @@ class DriftWorkoutSets extends Table {
   IntColumn get movementPattern => integer()(); // Enum index
   IntColumn get setNumber => integer()();
   IntColumn get reps => integer()();
+  IntColumn get minReps => integer().nullable()();
+  IntColumn get maxReps => integer().nullable()();
   IntColumn get targetRpe => integer()();
   IntColumn get reportedRpe => integer().nullable()();
   

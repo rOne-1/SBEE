@@ -14,7 +14,7 @@ class SbeeDatabase extends _$SbeeDatabase {
   SbeeDatabase(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -33,6 +33,12 @@ class SbeeDatabase extends _$SbeeDatabase {
           if (from < 3) {
             await m.addColumn(driftWorkoutSessions, driftWorkoutSessions.posturalWarning);
             await m.addColumn(driftWorkoutSessions, driftWorkoutSessions.posturalWarningReason);
+          }
+          if (from < 4) {
+            // Adds the min/max prescribed rep-range columns to DriftWorkoutSets,
+            // introduced alongside DayType-driven prescription generation.
+            await m.addColumn(driftWorkoutSets, driftWorkoutSets.minReps);
+            await m.addColumn(driftWorkoutSets, driftWorkoutSets.maxReps);
           }
         },
       );

@@ -34,6 +34,25 @@ void main() {
       expect(IntensityTechniques.validateEmomRepCount(reps: 11, secondsPerRep: 4, userLevel: 'advanced'), isFalse);
     });
 
+    test('EMOM rep count generation stays within level work-duration limits', () {
+      // Beginner: max 20s. secondsPerRep 3 => floor(20/3) = 6 reps.
+      expect(IntensityTechniques.generateEmomRepCount(userLevel: 'beginner', secondsPerRep: 3), equals(6));
+      expect(IntensityTechniques.validateEmomRepCount(reps: 6, secondsPerRep: 3, userLevel: 'beginner'), isTrue);
+
+      // Intermediate: max 30s. secondsPerRep 3 => floor(30/3) = 10 reps.
+      expect(IntensityTechniques.generateEmomRepCount(userLevel: 'intermediate', secondsPerRep: 3), equals(10));
+
+      // Advanced: max 40s. secondsPerRep 3 => floor(40/3) = 13 reps.
+      expect(IntensityTechniques.generateEmomRepCount(userLevel: 'advanced', secondsPerRep: 3), equals(13));
+
+      // Always returns at least 1 rep, even for a very slow tempo.
+      expect(IntensityTechniques.generateEmomRepCount(userLevel: 'beginner', secondsPerRep: 25), equals(1));
+
+      // Rejects invalid levels and non-positive tempo, same as validateEmomRepCount.
+      expect(() => IntensityTechniques.generateEmomRepCount(userLevel: 'expert'), throwsArgumentError);
+      expect(() => IntensityTechniques.generateEmomRepCount(userLevel: 'beginner', secondsPerRep: 0), throwsArgumentError);
+    });
+
     test('Tabata hybrid progression gate checks sessions and RPE', () {
       final now = DateTime.now();
 

@@ -151,5 +151,128 @@ void main() {
       );
       expect(workout.sets.any((s) => s.exerciseId == 'B'), isTrue, reason: 'ExB is allowed when equipment matches and plyo is not gated');
     });
+
+    test('generateNextWorkout prescribes DayType-driven reps/RPE instead of a hardcoded default', () async {
+      final now = DateTime.now();
+      final workout = await engine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: now,
+        availableEquipment: {Equipment.bands},
+      );
+
+      // First-ever workout has no history, so PeriodizationScheduler defaults to moderate.
+      expect(workout.dayType, equals(DayType.moderate));
+      expect(workout.sets, isNotEmpty);
+      for (final set in workout.sets) {
+        expect(set.reps, equals(10));
+        expect(set.minReps, equals(8));
+        expect(set.maxReps, equals(12));
+        expect(set.targetRpe, equals(8));
+      }
+    });
+
+    test('generateNextWorkout uses EMOM-structured reps on highLactic days', () async {
+      final now = DateTime.now();
+      // Seed one completed veryLight session (recent enough to avoid the 14-day
+      // detraining redirect) so the DUP rotation schedules highLactic next.
+      await sessionRepo.saveSession(WorkoutSession(
+        id: 'prior_session',
+        startTime: now.subtract(const Duration(days: 3)),
+        endTime: now.subtract(const Duration(days: 3)).add(const Duration(minutes: 30)),
+        isCompleted: true,
+        dayType: DayType.veryLight,
+      ));
+
+      final workout = await engine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: now,
+        availableEquipment: {Equipment.bands},
+      );
+
+      expect(workout.dayType, equals(DayType.highLactic));
+      expect(workout.sets, isNotEmpty);
+      for (final set in workout.sets) {
+        expect(set.minReps, equals(set.maxReps), reason: 'EMOM prescribes a single fixed rep count, not a range');
+        expect(set.reps, equals(set.minReps));
+        expect(set.cues.any((c) => c.contains('EMOM Structure')), isTrue);
+      }
+      // Neither exercise has prior progression, so competencyLevel defaults to
+      // 1 (beginner): 20s max duration / 3s per rep = 6 reps.
+      expect(workout.sets.first.reps, equals(6));
+    });
+
+    test('Per-exercise competencyLevel is promoted after enough completed sets', () async {
+      for (var i = 0; i < 8; i++) {
+        await sessionRepo.saveSession(WorkoutSession(
+          id: 'sess_$i',
+          startTime: DateTime.now(),
+          isCompleted: true,
+          sets: [
+            WorkoutSet(
+              id: 'set_$i',
+              sessionId: 'sess_$i',
+              exerciseId: 'A',
+              movementPattern: MovementPattern.pushing,
+              setNumber: 1,
+              reps: 10,
+              targetRpe: 7,
+              reportedRpe: 7,
+              variables: const MillerVariables(),
+              timestamp: DateTime.now(),
+            ),
+          ],
+        ));
+        await engine.logSetPerformance(exerciseId: 'A', reps: 10, reportedRpe: 7, targetRpe: 7);
+      }
+
+      final prog = await progressionRepo.getProgression('A');
+      expect(prog, isNotNull);
+      expect(prog!.competencyLevel, equals(2));
+    });
+
+    test('generateNextWorkout auto-detects Intermediate status once session-count and day-spread thresholds are met', () async {
+      final now = DateTime.now();
+      final earliest = now.subtract(const Duration(days: 20));
+
+      await sessionRepo.saveSession(WorkoutSession(
+        id: 'seed_first',
+        startTime: earliest,
+        endTime: earliest.add(const Duration(minutes: 30)),
+        isCompleted: true,
+        dayType: DayType.moderate,
+      ));
+      for (var i = 0; i < 11; i++) {
+        await sessionRepo.saveSession(WorkoutSession(
+          id: 'seed_$i',
+          startTime: now.subtract(const Duration(days: 1)),
+          endTime: now.subtract(const Duration(days: 1)).add(const Duration(minutes: 30)),
+          isCompleted: true,
+          dayType: DayType.moderate,
+        ));
+      }
+
+      expect(await progressionRepo.getStatusAchievedDate('Intermediate'), isNull);
+
+      await engine.generateNextWorkout(userId: 'user_1', currentTime: now, availableEquipment: {Equipment.bands});
+
+      expect(await progressionRepo.getStatusAchievedDate('Intermediate'), isNotNull);
+    });
+
+    test('generateNextWorkout withholds Intermediate status below the session-count threshold', () async {
+      final now = DateTime.now();
+      final earliest = now.subtract(const Duration(days: 20));
+      for (var i = 0; i < 5; i++) {
+        await sessionRepo.saveSession(WorkoutSession(
+          id: 'seed_few_$i',
+          startTime: earliest.add(Duration(days: i)),
+          isCompleted: true,
+          dayType: DayType.moderate,
+        ));
+      }
+
+      await engine.generateNextWorkout(userId: 'user_1', currentTime: now, availableEquipment: {Equipment.bands});
+
+      expect(await progressionRepo.getStatusAchievedDate('Intermediate'), isNull);
+    });
   });
 }

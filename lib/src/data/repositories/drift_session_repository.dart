@@ -65,6 +65,8 @@ class DriftSessionRepository implements SessionRepository {
               movementPattern: s.movementPattern.index,
               setNumber: s.setNumber,
               reps: s.reps,
+              minReps: s.minReps,
+              maxReps: s.maxReps,
               targetRpe: s.targetRpe,
               reportedRpe: s.reportedRpe,
               loadVal: s.variables.load,
@@ -99,6 +101,8 @@ class DriftSessionRepository implements SessionRepository {
         movementPattern: MovementPattern.values[row.movementPattern],
         setNumber: row.setNumber,
         reps: row.reps,
+        minReps: row.minReps,
+        maxReps: row.maxReps,
         targetRpe: row.targetRpe,
         reportedRpe: row.reportedRpe,
         variables: MillerVariables(
@@ -168,6 +172,8 @@ class DriftSessionRepository implements SessionRepository {
         movementPattern: MovementPattern.values[row.movementPattern],
         setNumber: row.setNumber,
         reps: row.reps,
+        minReps: row.minReps,
+        maxReps: row.maxReps,
         targetRpe: row.targetRpe,
         reportedRpe: row.reportedRpe,
         variables: MillerVariables(
@@ -199,6 +205,8 @@ class DriftSessionRepository implements SessionRepository {
         movementPattern: MovementPattern.values[row.movementPattern],
         setNumber: row.setNumber,
         reps: row.reps,
+        minReps: row.minReps,
+        maxReps: row.maxReps,
         targetRpe: row.targetRpe,
         reportedRpe: row.reportedRpe,
         variables: MillerVariables(

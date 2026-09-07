@@ -1,5 +1,4 @@
 import 'day_type.dart';
-import 'equipment.dart';
 import '../../engine/miller_variables.dart';
 import 'movement_pattern.dart';
 
@@ -11,6 +10,8 @@ class WorkoutSet {
   final MovementPattern movementPattern;
   final int setNumber;
   final int reps;
+  final int? minReps; // Prescribed rep-range floor. Null if this set was not generated from a ranged prescription.
+  final int? maxReps; // Prescribed rep-range ceiling. Null if this set was not generated from a ranged prescription.
   final int targetRpe;
   final int? reportedRpe; // Null if set is not yet completed/reported
   final MillerVariables variables;
@@ -25,6 +26,8 @@ class WorkoutSet {
     required this.movementPattern,
     required this.setNumber,
     required this.reps,
+    this.minReps,
+    this.maxReps,
     required this.targetRpe,
     this.reportedRpe,
     required this.variables,
@@ -35,6 +38,10 @@ class WorkoutSet {
 
   bool get isHighIntensity => (reportedRpe ?? 0) >= 8;
 
+  /// True if this set was generated from a min/max rep-range prescription
+  /// (e.g. DayType-driven generation) rather than a single fixed [reps] value.
+  bool get hasRepRange => minReps != null && maxReps != null;
+
   WorkoutSet copyWith({
     String? id,
     String? sessionId,
@@ -42,6 +49,8 @@ class WorkoutSet {
     MovementPattern? movementPattern,
     int? setNumber,
     int? reps,
+    int? minReps,
+    int? maxReps,
     int? targetRpe,
     int? reportedRpe,
     MillerVariables? variables,
@@ -56,6 +65,8 @@ class WorkoutSet {
       movementPattern: movementPattern ?? this.movementPattern,
       setNumber: setNumber ?? this.setNumber,
       reps: reps ?? this.reps,
+      minReps: minReps ?? this.minReps,
+      maxReps: maxReps ?? this.maxReps,
       targetRpe: targetRpe ?? this.targetRpe,
       reportedRpe: reportedRpe ?? this.reportedRpe,
       variables: variables ?? this.variables,

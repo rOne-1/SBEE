@@ -466,6 +466,18 @@ class $DriftWorkoutSetsTable extends DriftWorkoutSets
   late final GeneratedColumn<int> reps = GeneratedColumn<int>(
       'reps', aliasedName, false,
       type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _minRepsMeta =
+      const VerificationMeta('minReps');
+  @override
+  late final GeneratedColumn<int> minReps = GeneratedColumn<int>(
+      'min_reps', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _maxRepsMeta =
+      const VerificationMeta('maxReps');
+  @override
+  late final GeneratedColumn<int> maxReps = GeneratedColumn<int>(
+      'max_reps', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _targetRpeMeta =
       const VerificationMeta('targetRpe');
   @override
@@ -531,6 +543,8 @@ class $DriftWorkoutSetsTable extends DriftWorkoutSets
         movementPattern,
         setNumber,
         reps,
+        minReps,
+        maxReps,
         targetRpe,
         reportedRpe,
         loadVal,
@@ -590,6 +604,14 @@ class $DriftWorkoutSetsTable extends DriftWorkoutSets
           _repsMeta, reps.isAcceptableOrUnknown(data['reps']!, _repsMeta));
     } else if (isInserting) {
       context.missing(_repsMeta);
+    }
+    if (data.containsKey('min_reps')) {
+      context.handle(_minRepsMeta,
+          minReps.isAcceptableOrUnknown(data['min_reps']!, _minRepsMeta));
+    }
+    if (data.containsKey('max_reps')) {
+      context.handle(_maxRepsMeta,
+          maxReps.isAcceptableOrUnknown(data['max_reps']!, _maxRepsMeta));
     }
     if (data.containsKey('target_rpe')) {
       context.handle(_targetRpeMeta,
@@ -672,6 +694,10 @@ class $DriftWorkoutSetsTable extends DriftWorkoutSets
           .read(DriftSqlType.int, data['${effectivePrefix}set_number'])!,
       reps: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}reps'])!,
+      minReps: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}min_reps']),
+      maxReps: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}max_reps']),
       targetRpe: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}target_rpe'])!,
       reportedRpe: attachedDatabase.typeMapping
@@ -708,6 +734,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
   final int movementPattern;
   final int setNumber;
   final int reps;
+  final int? minReps;
+  final int? maxReps;
   final int targetRpe;
   final int? reportedRpe;
   final int loadVal;
@@ -725,6 +753,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
       required this.movementPattern,
       required this.setNumber,
       required this.reps,
+      this.minReps,
+      this.maxReps,
       required this.targetRpe,
       this.reportedRpe,
       required this.loadVal,
@@ -744,6 +774,12 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
     map['movement_pattern'] = Variable<int>(movementPattern);
     map['set_number'] = Variable<int>(setNumber);
     map['reps'] = Variable<int>(reps);
+    if (!nullToAbsent || minReps != null) {
+      map['min_reps'] = Variable<int>(minReps);
+    }
+    if (!nullToAbsent || maxReps != null) {
+      map['max_reps'] = Variable<int>(maxReps);
+    }
     map['target_rpe'] = Variable<int>(targetRpe);
     if (!nullToAbsent || reportedRpe != null) {
       map['reported_rpe'] = Variable<int>(reportedRpe);
@@ -771,6 +807,12 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
       movementPattern: Value(movementPattern),
       setNumber: Value(setNumber),
       reps: Value(reps),
+      minReps: minReps == null && nullToAbsent
+          ? const Value.absent()
+          : Value(minReps),
+      maxReps: maxReps == null && nullToAbsent
+          ? const Value.absent()
+          : Value(maxReps),
       targetRpe: Value(targetRpe),
       reportedRpe: reportedRpe == null && nullToAbsent
           ? const Value.absent()
@@ -800,6 +842,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
       movementPattern: serializer.fromJson<int>(json['movementPattern']),
       setNumber: serializer.fromJson<int>(json['setNumber']),
       reps: serializer.fromJson<int>(json['reps']),
+      minReps: serializer.fromJson<int?>(json['minReps']),
+      maxReps: serializer.fromJson<int?>(json['maxReps']),
       targetRpe: serializer.fromJson<int>(json['targetRpe']),
       reportedRpe: serializer.fromJson<int?>(json['reportedRpe']),
       loadVal: serializer.fromJson<int>(json['loadVal']),
@@ -823,6 +867,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
       'movementPattern': serializer.toJson<int>(movementPattern),
       'setNumber': serializer.toJson<int>(setNumber),
       'reps': serializer.toJson<int>(reps),
+      'minReps': serializer.toJson<int?>(minReps),
+      'maxReps': serializer.toJson<int?>(maxReps),
       'targetRpe': serializer.toJson<int>(targetRpe),
       'reportedRpe': serializer.toJson<int?>(reportedRpe),
       'loadVal': serializer.toJson<int>(loadVal),
@@ -843,6 +889,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
           int? movementPattern,
           int? setNumber,
           int? reps,
+          Value<int?> minReps = const Value.absent(),
+          Value<int?> maxReps = const Value.absent(),
           int? targetRpe,
           Value<int?> reportedRpe = const Value.absent(),
           int? loadVal,
@@ -860,6 +908,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
         movementPattern: movementPattern ?? this.movementPattern,
         setNumber: setNumber ?? this.setNumber,
         reps: reps ?? this.reps,
+        minReps: minReps.present ? minReps.value : this.minReps,
+        maxReps: maxReps.present ? maxReps.value : this.maxReps,
         targetRpe: targetRpe ?? this.targetRpe,
         reportedRpe: reportedRpe.present ? reportedRpe.value : this.reportedRpe,
         loadVal: loadVal ?? this.loadVal,
@@ -884,6 +934,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
           : this.movementPattern,
       setNumber: data.setNumber.present ? data.setNumber.value : this.setNumber,
       reps: data.reps.present ? data.reps.value : this.reps,
+      minReps: data.minReps.present ? data.minReps.value : this.minReps,
+      maxReps: data.maxReps.present ? data.maxReps.value : this.maxReps,
       targetRpe: data.targetRpe.present ? data.targetRpe.value : this.targetRpe,
       reportedRpe:
           data.reportedRpe.present ? data.reportedRpe.value : this.reportedRpe,
@@ -911,6 +963,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
           ..write('movementPattern: $movementPattern, ')
           ..write('setNumber: $setNumber, ')
           ..write('reps: $reps, ')
+          ..write('minReps: $minReps, ')
+          ..write('maxReps: $maxReps, ')
           ..write('targetRpe: $targetRpe, ')
           ..write('reportedRpe: $reportedRpe, ')
           ..write('loadVal: $loadVal, ')
@@ -933,6 +987,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
       movementPattern,
       setNumber,
       reps,
+      minReps,
+      maxReps,
       targetRpe,
       reportedRpe,
       loadVal,
@@ -953,6 +1009,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
           other.movementPattern == this.movementPattern &&
           other.setNumber == this.setNumber &&
           other.reps == this.reps &&
+          other.minReps == this.minReps &&
+          other.maxReps == this.maxReps &&
           other.targetRpe == this.targetRpe &&
           other.reportedRpe == this.reportedRpe &&
           other.loadVal == this.loadVal &&
@@ -972,6 +1030,8 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
   final Value<int> movementPattern;
   final Value<int> setNumber;
   final Value<int> reps;
+  final Value<int?> minReps;
+  final Value<int?> maxReps;
   final Value<int> targetRpe;
   final Value<int?> reportedRpe;
   final Value<int> loadVal;
@@ -990,6 +1050,8 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
     this.movementPattern = const Value.absent(),
     this.setNumber = const Value.absent(),
     this.reps = const Value.absent(),
+    this.minReps = const Value.absent(),
+    this.maxReps = const Value.absent(),
     this.targetRpe = const Value.absent(),
     this.reportedRpe = const Value.absent(),
     this.loadVal = const Value.absent(),
@@ -1009,6 +1071,8 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
     required int movementPattern,
     required int setNumber,
     required int reps,
+    this.minReps = const Value.absent(),
+    this.maxReps = const Value.absent(),
     required int targetRpe,
     this.reportedRpe = const Value.absent(),
     required int loadVal,
@@ -1040,6 +1104,8 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
     Expression<int>? movementPattern,
     Expression<int>? setNumber,
     Expression<int>? reps,
+    Expression<int>? minReps,
+    Expression<int>? maxReps,
     Expression<int>? targetRpe,
     Expression<int>? reportedRpe,
     Expression<int>? loadVal,
@@ -1059,6 +1125,8 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
       if (movementPattern != null) 'movement_pattern': movementPattern,
       if (setNumber != null) 'set_number': setNumber,
       if (reps != null) 'reps': reps,
+      if (minReps != null) 'min_reps': minReps,
+      if (maxReps != null) 'max_reps': maxReps,
       if (targetRpe != null) 'target_rpe': targetRpe,
       if (reportedRpe != null) 'reported_rpe': reportedRpe,
       if (loadVal != null) 'load_val': loadVal,
@@ -1081,6 +1149,8 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
       Value<int>? movementPattern,
       Value<int>? setNumber,
       Value<int>? reps,
+      Value<int?>? minReps,
+      Value<int?>? maxReps,
       Value<int>? targetRpe,
       Value<int?>? reportedRpe,
       Value<int>? loadVal,
@@ -1099,6 +1169,8 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
       movementPattern: movementPattern ?? this.movementPattern,
       setNumber: setNumber ?? this.setNumber,
       reps: reps ?? this.reps,
+      minReps: minReps ?? this.minReps,
+      maxReps: maxReps ?? this.maxReps,
       targetRpe: targetRpe ?? this.targetRpe,
       reportedRpe: reportedRpe ?? this.reportedRpe,
       loadVal: loadVal ?? this.loadVal,
@@ -1133,6 +1205,12 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
     }
     if (reps.present) {
       map['reps'] = Variable<int>(reps.value);
+    }
+    if (minReps.present) {
+      map['min_reps'] = Variable<int>(minReps.value);
+    }
+    if (maxReps.present) {
+      map['max_reps'] = Variable<int>(maxReps.value);
     }
     if (targetRpe.present) {
       map['target_rpe'] = Variable<int>(targetRpe.value);
@@ -1179,6 +1257,8 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
           ..write('movementPattern: $movementPattern, ')
           ..write('setNumber: $setNumber, ')
           ..write('reps: $reps, ')
+          ..write('minReps: $minReps, ')
+          ..write('maxReps: $maxReps, ')
           ..write('targetRpe: $targetRpe, ')
           ..write('reportedRpe: $reportedRpe, ')
           ..write('loadVal: $loadVal, ')
@@ -2194,6 +2274,8 @@ typedef $$DriftWorkoutSetsTableCreateCompanionBuilder
   required int movementPattern,
   required int setNumber,
   required int reps,
+  Value<int?> minReps,
+  Value<int?> maxReps,
   required int targetRpe,
   Value<int?> reportedRpe,
   required int loadVal,
@@ -2214,6 +2296,8 @@ typedef $$DriftWorkoutSetsTableUpdateCompanionBuilder
   Value<int> movementPattern,
   Value<int> setNumber,
   Value<int> reps,
+  Value<int?> minReps,
+  Value<int?> maxReps,
   Value<int> targetRpe,
   Value<int?> reportedRpe,
   Value<int> loadVal,
@@ -2273,6 +2357,12 @@ class $$DriftWorkoutSetsTableFilterComposer
 
   ColumnFilters<int> get reps => $composableBuilder(
       column: $table.reps, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get minReps => $composableBuilder(
+      column: $table.minReps, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get maxReps => $composableBuilder(
+      column: $table.maxReps, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get targetRpe => $composableBuilder(
       column: $table.targetRpe, builder: (column) => ColumnFilters(column));
@@ -2351,6 +2441,12 @@ class $$DriftWorkoutSetsTableOrderingComposer
   ColumnOrderings<int> get reps => $composableBuilder(
       column: $table.reps, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get minReps => $composableBuilder(
+      column: $table.minReps, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get maxReps => $composableBuilder(
+      column: $table.maxReps, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get targetRpe => $composableBuilder(
       column: $table.targetRpe, builder: (column) => ColumnOrderings(column));
 
@@ -2428,6 +2524,12 @@ class $$DriftWorkoutSetsTableAnnotationComposer
 
   GeneratedColumn<int> get reps =>
       $composableBuilder(column: $table.reps, builder: (column) => column);
+
+  GeneratedColumn<int> get minReps =>
+      $composableBuilder(column: $table.minReps, builder: (column) => column);
+
+  GeneratedColumn<int> get maxReps =>
+      $composableBuilder(column: $table.maxReps, builder: (column) => column);
 
   GeneratedColumn<int> get targetRpe =>
       $composableBuilder(column: $table.targetRpe, builder: (column) => column);
@@ -2511,6 +2613,8 @@ class $$DriftWorkoutSetsTableTableManager extends RootTableManager<
             Value<int> movementPattern = const Value.absent(),
             Value<int> setNumber = const Value.absent(),
             Value<int> reps = const Value.absent(),
+            Value<int?> minReps = const Value.absent(),
+            Value<int?> maxReps = const Value.absent(),
             Value<int> targetRpe = const Value.absent(),
             Value<int?> reportedRpe = const Value.absent(),
             Value<int> loadVal = const Value.absent(),
@@ -2530,6 +2634,8 @@ class $$DriftWorkoutSetsTableTableManager extends RootTableManager<
             movementPattern: movementPattern,
             setNumber: setNumber,
             reps: reps,
+            minReps: minReps,
+            maxReps: maxReps,
             targetRpe: targetRpe,
             reportedRpe: reportedRpe,
             loadVal: loadVal,
@@ -2549,6 +2655,8 @@ class $$DriftWorkoutSetsTableTableManager extends RootTableManager<
             required int movementPattern,
             required int setNumber,
             required int reps,
+            Value<int?> minReps = const Value.absent(),
+            Value<int?> maxReps = const Value.absent(),
             required int targetRpe,
             Value<int?> reportedRpe = const Value.absent(),
             required int loadVal,
@@ -2568,6 +2676,8 @@ class $$DriftWorkoutSetsTableTableManager extends RootTableManager<
             movementPattern: movementPattern,
             setNumber: setNumber,
             reps: reps,
+            minReps: minReps,
+            maxReps: maxReps,
             targetRpe: targetRpe,
             reportedRpe: reportedRpe,
             loadVal: loadVal,
