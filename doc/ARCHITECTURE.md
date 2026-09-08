@@ -135,6 +135,8 @@ This state transition logic is strictly isolated from UI rendering and exposed t
 ### C. Crash Resilience & Session Resume
 [SessionStreamManager](../lib/src/engine/session_stream.dart) optionally accepts a `SessionRepository` and persists the session (fire-and-forget; write failures are swallowed rather than crashing the FSM) after `initializeSession` and every `logCurrentSet`. Combined with `SessionRepository.getActiveIncompleteSession()` and `SessionStreamManager.resumeSession()`, this lets `SbeeEngine.resumeActiveSession()` reconstruct an in-progress session — at the correct set, without re-writing already-logged data — after an app crash, force-quit, or killed background process. Before this, an active session existed only in host-app memory until the final, explicit `saveSession()` call after `finalizeSession()`; any interruption before that point lost the entire session's progress.
 
+The counterpart is `SbeeEngine.discardActiveSession()`, for a user who doesn't want to resume the recovered session at all. It calls the new `SessionRepository.deleteSession(id)` on the current `getActiveIncompleteSession()` result. Without a real delete path, a host app's only options were to keep resuming the same abandoned session forever or to hide the resume prompt locally while the underlying row stayed in the database indefinitely.
+
 ### D. Postural Balance Generation Enforcement
 To ensure musculoskeletal health and postural alignment, SBEE enforces a strict 2:1 pull-to-push set ratio over a sliding 14-day window during workout generation:
 

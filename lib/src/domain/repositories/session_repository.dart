@@ -47,6 +47,14 @@ abstract class SessionRepository {
   /// false`) session, or `null` if none exists. Used to detect and resume a
   /// workout session left in progress after an app crash or restart.
   Future<WorkoutSession?> getActiveIncompleteSession();
+
+  /// Permanently deletes a session and its sets. Intended for discarding an
+  /// abandoned incomplete session -- [getActiveIncompleteSession] would
+  /// otherwise keep surfacing it as resumable indefinitely, since nothing
+  /// else in this repository ever removes a session once written. Deleting a
+  /// completed session is allowed at the repository level (no `isCompleted`
+  /// guard) but is not something any current caller does.
+  Future<void> deleteSession(String id);
 }
 
 /// Explicit exception thrown on write errors, corrupt reads, or constraint violations in the session repository.

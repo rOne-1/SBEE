@@ -654,5 +654,45 @@ void main() {
         () async {
       expect(await engine.resumeActiveSession(), isNull);
     });
+
+    test(
+        'discardActiveSession deletes an abandoned session so it is never surfaced as resumable again',
+        () async {
+      final now = DateTime.now();
+      final workout = await engine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: now,
+        availableEquipment: {Equipment.bands},
+      );
+
+      final manager = engine.createWorkoutSession(session: workout);
+      manager.startWorkout();
+      manager.logCurrentSet(
+          reps: workout.sets.first.reps,
+          reportedRpe: workout.sets.first.targetRpe);
+      await Future<void>.delayed(Duration.zero);
+      manager.dispose();
+
+      expect(await sessionRepo.getActiveIncompleteSession(), isNotNull);
+
+      await engine.discardActiveSession();
+
+      expect(await sessionRepo.getActiveIncompleteSession(), isNull);
+      expect(await sessionRepo.getSession(workout.id), isNull);
+      expect(await engine.resumeActiveSession(), isNull);
+
+      // deleteSession must remove the sets rows too, not just the session
+      // row -- otherwise they'd be orphaned rather than actually discarded.
+      final remainingSets = await (database.select(database.driftWorkoutSets)
+            ..where((t) => t.sessionId.equals(workout.id)))
+          .get();
+      expect(remainingSets, isEmpty);
+    });
+
+    test('discardActiveSession is a no-op when there is nothing to discard',
+        () async {
+      await engine.discardActiveSession(); // should not throw
+      expect(await sessionRepo.getActiveIncompleteSession(), isNull);
+    });
   });
 }

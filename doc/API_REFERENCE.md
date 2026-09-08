@@ -77,6 +77,12 @@ Checks for a workout session left incomplete (e.g. after a crash, force-quit, or
 Future<SessionStreamManager?> resumeActiveSession();
 ```
 
+#### `discardActiveSession`
+Permanently deletes the current incomplete session (as returned by `getActiveIncompleteSession`) via `SessionRepository.deleteSession`, for a host app offering the user a way to dismiss an abandoned session rather than resume it. Without this, `resumeActiveSession` would keep surfacing the same session as resumable indefinitely, since nothing else ever removes a session once written. A no-op if there is nothing to discard.
+```dart
+Future<void> discardActiveSession();
+```
+
 ---
 
 ## 2. Domain Models
@@ -442,6 +448,7 @@ Saves completed workouts and provides query methods for safety validation.
 - `Future<int> getCompletedSessionCount()`: Total count of completed sessions.
 - `Future<int> getReportedSetCountForExercise(String exerciseId)`: Count of logged sets (`reportedRpe != null`) for a specific exercise, across all sessions regardless of the parent session's completion status.
 - `Future<WorkoutSession?> getActiveIncompleteSession()`: The single most recently-started incomplete (`isCompleted == false`) session, or `null`. Used to detect and resume a workout left in progress after a crash or restart.
+- `Future<void> deleteSession(String id)`: Permanently deletes a session and its sets. Intended for discarding an abandoned incomplete session (see `SbeeEngine.discardActiveSession`) -- allowed at the repository level for a completed session too, but no current caller does that.
 
 > [!NOTE]
 > The five methods above exist specifically so implementers (and SBEE's own internal calls) never need to fetch the entire session/set history just to find one recent value or a count — each should be backed by a real bounded/indexed query (e.g. `ORDER BY ... LIMIT 1`, `COUNT(*)`), not a full table scan filtered in application code.

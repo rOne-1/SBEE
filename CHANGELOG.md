@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0
+
+- **Added a real way to discard an abandoned incomplete session.** `SessionRepository.getActiveIncompleteSession()`/`SbeeEngine.resumeActiveSession()` could find a session left over from a crash or a user who never came back to finish it, but nothing could ever remove one — a host app's only option was to hide its own resume prompt locally while the row stayed in the database forever. Added `SessionRepository.deleteSession(String id)` (deletes the session and its sets in one transaction) and `SbeeEngine.discardActiveSession()`, the symmetric counterpart to `resumeActiveSession()`.
+- See `doc/DECISIONS_LOG.md` for full rationale.
+
 ## 0.5.0
 
 Beginner-safety pass: three related gaps found by walking through the app as a complete-beginner, sedentary, low-mobility persona.

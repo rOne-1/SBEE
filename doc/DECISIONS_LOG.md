@@ -137,6 +137,13 @@ Two behaviors were implemented only inside the `FemaleProfile`/`FemalePhysiology
 - **Scope**: no existing `FemaleProfile` behavior changed for callers who don't also pass the new flag — a female-profile user under 45 with joint pain still isn't gated by `isPlyometricsAllowed` alone, exactly as before. What changed is that the accommodation is now *reachable* without a `FemaleProfile` at all.
 - **Lesson for future wrapper methods**: check whether new logic is genuinely population-specific before writing it inside `FemalePhysiologyWrapper` — see the caution note in ARCHITECTURE.md §3.A.
 
+### `APP-SPECIFIC DESIGN DECISION`: Discarding an Abandoned Incomplete Session
+`SessionRepository` had a way to find an abandoned incomplete session (`getActiveIncompleteSession`, backing `resumeActiveSession`) but no way to ever remove one.
+
+- **Problem**: a session left incomplete (app closed mid-workout, or the user simply changes their mind) would be surfaced as resumable by `resumeActiveSession` forever, since nothing in the repository contract could delete it. A host app's only option was to hide its own resume prompt locally, which reappears on every restart since the underlying row never goes away.
+- **Decision**: added `SessionRepository.deleteSession(String id)` (removes the session and its sets in one transaction) and `SbeeEngine.discardActiveSession()`, a convenience that deletes whatever `getActiveIncompleteSession()` currently returns — a no-op if there's nothing to discard. Deliberately symmetric with `resumeActiveSession()`: one continues the abandoned session, the other ends it for good.
+- **Scope**: `deleteSession` is not guarded to incomplete sessions only — the repository permits deleting a completed one too, since there's no reason to make the method more restrictive than the interface needs to be. No current caller does that.
+
 ---
 
 ## 4. Database Schema Versioning
@@ -187,7 +194,7 @@ All 8 methods in [`FemalePhysiologyWrapper`](../lib/src/engine/female_wrapper.da
 
 ## 4.8. Versioning
 
-The current library version is `0.5.0`. All changes, database schema migrations, and feature additions are recorded in the [CHANGELOG.md](../CHANGELOG.md) in the repository root.
+The current library version is `0.6.0`. All changes, database schema migrations, and feature additions are recorded in the [CHANGELOG.md](../CHANGELOG.md) in the repository root.
 
 ---
 

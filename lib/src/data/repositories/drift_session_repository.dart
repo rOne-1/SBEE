@@ -365,4 +365,20 @@ class DriftSessionRepository implements SessionRepository {
     if (row == null) return null;
     return getSession(row.id);
   }
+
+  @override
+  Future<void> deleteSession(String id) async {
+    try {
+      await db.transaction(() async {
+        await (db.delete(db.driftWorkoutSets)
+              ..where((t) => t.sessionId.equals(id)))
+            .go();
+        await (db.delete(db.driftWorkoutSessions)
+              ..where((t) => t.id.equals(id)))
+            .go();
+      });
+    } catch (e) {
+      throw SessionRepositoryException('Failed to delete session $id', e);
+    }
+  }
 }

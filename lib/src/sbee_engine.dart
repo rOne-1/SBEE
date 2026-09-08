@@ -727,4 +727,17 @@ class SbeeEngine {
     manager.resumeSession(incomplete);
     return manager;
   }
+
+  /// Permanently discards the current incomplete session left over from a
+  /// crash, force-quit, or a user who simply never came back to finish it --
+  /// the counterpart to [resumeActiveSession] for a user who doesn't want to
+  /// resume it. Without this, [resumeActiveSession] would keep surfacing the
+  /// same abandoned session as resumable indefinitely, since nothing else
+  /// ever removes a session once written. A no-op if there is nothing to
+  /// discard.
+  Future<void> discardActiveSession() async {
+    final incomplete = await sessionRepository.getActiveIncompleteSession();
+    if (incomplete == null) return;
+    await sessionRepository.deleteSession(incomplete.id);
+  }
 }
