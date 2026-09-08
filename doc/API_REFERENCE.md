@@ -220,6 +220,9 @@ Represents reasons a generated session deviates from its DayType prescription fo
 - `RecoveryReason.none`: No recovery fallback active.
 - `RecoveryReason.allMovementPatternsLocked`: Every movement pattern was under the 48h post-RPE8 recovery lock at once (see `SafetyRules.isMovementLocked`), which would otherwise leave the session with zero exercises. The session falls back to the same equipment-eligible catalog at `SbeeEngine.recoveryFallbackTargetRpe` / `recoveryFallbackSetsCount` instead of the DayType's normal prescription.
 
+### Beginner Exercise-Tier Cap
+Until an account reaches whole-account `Intermediate` status (`ProgressionRepository.getStatusAchievedDate('Intermediate')` non-null), `generateNextWorkout` excludes any exercise with `difficultyTier > SbeeEngine.beginnerMaxDifficultyTier` (3) from the candidate pool, including during the recovery fallback above. Every shared-core exercise is tier 1-3 and every Path specialty exercise is tier 4-6, so in practice this means a fresh account trains the core catalog only, regardless of chosen Path or available equipment, until it has a real track record.
+
 ---
 
 ## 3. Female Physiology Wrapper

@@ -122,6 +122,13 @@ A user training hard across their entire routine in a short span can trigger the
 - **Decision**: When the lock leaves the pool empty, the engine recomputes eligibility ignoring ONLY that lock (equipment and the plyometric exclusion still apply) and, if anything qualifies, generates a session capped at `SbeeEngine.recoveryFallbackTargetRpe` (4) and `recoveryFallbackSetsCount` (2) — deliberately below even a scheduled deload's RPE 6 / 50% volume, since deload assumes moderate freshness going into a planned reduction while this reacts to every pattern having just been pushed to near-failure. Postural (push/pull) balancing is skipped for these sessions. Flagged via `WorkoutSession.recoveryReason = RecoveryReason.allMovementPatternsLocked` so host apps can explain the reduced session instead of surfacing a dead end.
 - **Scope**: This does not shorten or bypass the 48h lock itself — the lock still governs normal generation; this only changes what happens when it would otherwise produce nothing.
 
+### `APP-SPECIFIC DESIGN DECISION`: Whole-Account Beginner Exercise-Tier Cap
+Every exercise carries a `difficultyTier` (1-6), but exercise selection never used it — a brand-new account with reasonable equipment could be handed tier-6 movements (pistol squats, suspension-trainer fallouts) in its very first session, with nothing in the selection logic aware this might be someone's first time training at all.
+
+- **Problem**: unsupervised first-session exposure to high-skill or high-eccentric-demand movements is a real injury vector for a true beginner, not just a difficulty mismatch — and the catalog already splits cleanly on this line (every shared-core exercise is tier 1-3, every Path specialty exercise is tier 4-6).
+- **Decision**: reuse the existing whole-account "Intermediate" status detection (session B above) rather than inventing a new signal. Until that status is achieved, `generateNextWorkout` excludes any exercise with `difficultyTier > SbeeEngine.beginnerMaxDifficultyTier` (3) from the candidate pool, including during the recovery fallback — a fatigued beginner never gets bumped up to a specialty movement just because everything else was filtered out. This is a hard exclusion, not a soft/occasional exposure.
+- **Scope**: gates exercise-pool selection only. Chosen Path still determines theme and which specialty pool unlocks later; it no longer determines what's trainable on day one.
+
 ---
 
 ## 4. Database Schema Versioning

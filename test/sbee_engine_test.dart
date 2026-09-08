@@ -246,6 +246,149 @@ void main() {
     });
 
     test(
+        'generateNextWorkout caps a fresh account to beginnerMaxDifficultyTier even with full equipment',
+        () async {
+      const beginnerEx = Exercise(
+        id: 'beginner_squat',
+        name: 'Bodyweight Squat',
+        movementPattern: MovementPattern.bendAndLift,
+        difficultyTier: 1,
+        equipmentRequirements: {},
+      );
+      const specialtyEx = Exercise(
+        id: 'pistol_squat',
+        name: 'Pistol Squat',
+        movementPattern: MovementPattern.singleLeg,
+        difficultyTier: 6,
+        equipmentRequirements: {},
+      );
+      final mixedGraph = ExerciseGraph({
+        beginnerEx: <Exercise>{},
+        specialtyEx: <Exercise>{},
+      });
+      final mixedEngine = SbeeEngine(
+        sessionRepository: sessionRepo,
+        progressionRepository: progressionRepo,
+        exerciseGraph: mixedGraph,
+      );
+
+      final workout = await mixedEngine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: DateTime.now(),
+        availableEquipment: Equipment.values.toSet(),
+      );
+
+      expect(workout.sets.any((s) => s.exerciseId == 'beginner_squat'), isTrue);
+      expect(workout.sets.any((s) => s.exerciseId == 'pistol_squat'), isFalse,
+          reason: 'A fresh account has no Intermediate status yet, so tier 6 should stay locked out');
+    });
+
+    test(
+        'generateNextWorkout unlocks tier 4+ exercises once whole-account Intermediate status is achieved',
+        () async {
+      const beginnerEx = Exercise(
+        id: 'beginner_squat',
+        name: 'Bodyweight Squat',
+        movementPattern: MovementPattern.bendAndLift,
+        difficultyTier: 1,
+        equipmentRequirements: {},
+      );
+      const specialtyEx = Exercise(
+        id: 'pistol_squat',
+        name: 'Pistol Squat',
+        movementPattern: MovementPattern.singleLeg,
+        difficultyTier: 6,
+        equipmentRequirements: {},
+      );
+      final mixedGraph = ExerciseGraph({
+        beginnerEx: <Exercise>{},
+        specialtyEx: <Exercise>{},
+      });
+      final mixedEngine = SbeeEngine(
+        sessionRepository: sessionRepo,
+        progressionRepository: progressionRepo,
+        exerciseGraph: mixedGraph,
+      );
+
+      await progressionRepo.saveStatusAchievedDate('Intermediate', DateTime.now());
+
+      final workout = await mixedEngine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: DateTime.now(),
+        availableEquipment: Equipment.values.toSet(),
+      );
+
+      expect(workout.sets.any((s) => s.exerciseId == 'pistol_squat'), isTrue,
+          reason: 'Once Intermediate status is on record, tier 6 exercises should be eligible');
+    });
+
+    test(
+        'generateNextWorkout keeps the beginner tier cap active even during the recovery fallback',
+        () async {
+      const beginnerEx = Exercise(
+        id: 'beginner_squat',
+        name: 'Bodyweight Squat',
+        movementPattern: MovementPattern.bendAndLift,
+        difficultyTier: 1,
+        equipmentRequirements: {},
+      );
+      const specialtyEx = Exercise(
+        id: 'pistol_squat',
+        name: 'Pistol Squat',
+        movementPattern: MovementPattern.singleLeg,
+        difficultyTier: 6,
+        equipmentRequirements: {},
+      );
+      final mixedGraph = ExerciseGraph({
+        beginnerEx: <Exercise>{},
+        specialtyEx: <Exercise>{},
+      });
+      final mixedEngine = SbeeEngine(
+        sessionRepository: sessionRepo,
+        progressionRepository: progressionRepo,
+        exerciseGraph: mixedGraph,
+      );
+
+      final now = DateTime.now();
+      // Lock the only pattern a beginner is actually eligible for
+      // (bendAndLift, via beginner_squat) so the recovery fallback engages.
+      await sessionRepo.saveSession(WorkoutSession(
+        id: 'heavy_session',
+        startTime: now.subtract(const Duration(hours: 1)),
+        isCompleted: true,
+        sets: [
+          WorkoutSet(
+            id: 'heavy_set',
+            sessionId: 'heavy_session',
+            exerciseId: 'beginner_squat',
+            movementPattern: MovementPattern.bendAndLift,
+            setNumber: 1,
+            reps: 10,
+            targetRpe: 8,
+            reportedRpe: 8,
+            variables: const MillerVariables(),
+            timestamp: now.subtract(const Duration(hours: 1)),
+          ),
+        ],
+      ));
+
+      final workout = await mixedEngine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: now,
+        availableEquipment: Equipment.values.toSet(),
+      );
+
+      // The recovery fallback ignores the 48h lock (so beginner_squat still
+      // shows up at reduced intensity), but it must not reach for the tier-6
+      // exercise just because it's technically equipment-eligible -- a
+      // fatigued beginner should get a light familiar movement, never a
+      // sudden jump to an advanced one just because everything else is locked.
+      expect(workout.recoveryReason, equals(RecoveryReason.allMovementPatternsLocked));
+      expect(workout.sets.any((s) => s.exerciseId == 'beginner_squat'), isTrue);
+      expect(workout.sets.any((s) => s.exerciseId == 'pistol_squat'), isFalse);
+    });
+
+    test(
         'generateNextWorkout prescribes DayType-driven reps/RPE instead of a hardcoded default',
         () async {
       final now = DateTime.now();

@@ -151,6 +151,13 @@ To ensure musculoskeletal health and postural alignment, SBEE enforces a strict 
 - **Postural Balancing Skipped**: Push/pull balancing (section D above) doesn't run for these sessions — it's a training-stress management concern that doesn't apply at this intensity floor.
 - **No Interaction With The Lock Itself**: This fallback does not unlock or shorten the 48h window for any pattern; it only changes what gets generated when the lock would otherwise leave nothing to program.
 
+### F. Whole-Account Beginner Exercise-Tier Cap
+Every exercise carries a `difficultyTier` (1-6), but until this feature nothing in generation used it — equipment and the 48h lock were the only filters. A brand-new account choosing a Path and reasonable equipment could be handed tier-6 movements (a pistol squat, a suspension-trainer fallout) in its very first session, with nothing aware this might be someone's first time exercising at all.
+
+- **The Catalog's Natural Split**: every shared-core exercise is tier 1-3, and every Path specialty exercise is tier 4-6 — a clean line that already exists in the data without any new authoring.
+- **Gate**: until the account reaches whole-account "Intermediate" status (section B's detection, reused rather than duplicated), `generateNextWorkout` excludes any exercise with `difficultyTier > SbeeEngine.beginnerMaxDifficultyTier` (3) from both the normal candidate pool and the recovery-fallback recompute (section E) — a fatigued beginner still only sees tier 1-3 movements, never a sudden jump to a specialty one just because everything else got filtered out.
+- **Hard Cap, Not Soft Exposure**: this is a strict exclusion, not an occasional/weighted inclusion, since the goal is to guarantee zero tier 4+ exposure until there's a real, time-gated track record behind the account (the same 12-session / 14-day Intermediate thresholds already used for the tempo-unlock gate).
+
 ---
 
 ## 4. Persistence Architecture

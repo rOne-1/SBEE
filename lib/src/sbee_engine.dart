@@ -83,6 +83,36 @@ class SbeeEngine {
   static const int recoveryFallbackTargetRpe = 4;
   static const int recoveryFallbackSetsCount = 2;
 
+  /// SAFETY-FEATURE SCIENCE NOTE: Whole-Account Beginner Exercise-Tier Cap
+  /// Exercise selection previously filtered candidates only by equipment and
+  /// the 48h recovery lock -- `difficultyTier` (1-6, set on every `Exercise`)
+  /// was tracked but never used to decide which exercises a session could
+  /// draw from. A brand-new account choosing a Path and reasonable equipment
+  /// (bands, a bench) could be handed tier-6 movements like a pistol squat
+  /// or a suspension-trainer fallout in its very first session, alongside
+  /// tier-1 bodyweight squats, with nothing in the selection logic aware
+  /// this is someone's first time under load. For a true beginner -- no
+  /// trained movement patterns, no baseline strength, no practiced landing
+  /// mechanics -- unsupervised exposure to high-skill or high-eccentric-
+  /// demand movements (pistols, box jumps, plyometric pushups) is a real
+  /// injury vector, not just a difficulty mismatch.
+  ///
+  /// Every exercise in this catalog already splits cleanly on this exact
+  /// line: all 15 shared-core exercises are tier 1-3, and all 80 Path
+  /// specialty exercises are tier 4-6. So rather than inventing a new
+  /// progression signal, this reuses the existing whole-account
+  /// "Intermediate" status detection above (`intermediateStatusSessionThreshold`
+  /// / `intermediateStatusMinDays`): until that status is achieved, session
+  /// generation is capped to `beginnerMaxDifficultyTier` regardless of
+  /// equipment or chosen Path -- so a fresh account trains the core catalog
+  /// first and a Path's specialty flavor unlocks once there's a real,
+  /// time-gated track record behind it, not just an equipment checklist.
+  /// This is a hard cap, not a soft/occasional exposure, since the whole
+  /// point is to guarantee a beginner never sees tier 4+ until the account
+  /// has evidence of sustained training, not just a single lucky equipment
+  /// selection.
+  static const int beginnerMaxDifficultyTier = 3;
+
   SbeeEngine({
     required this.sessionRepository,
     required this.progressionRepository,
@@ -305,10 +335,20 @@ class SbeeEngine {
     // 3.5. Resolve the DayType's locked reps/RPE/setsCount prescription once.
     final prescription = DayTypePrescription.forDayType(dayType);
 
+    // 3.6. Whole-account beginner tier cap (see beginnerMaxDifficultyTier doc
+    // comment for the science). Re-reads the status set in step 1.5 above --
+    // cheap (same in-memory-scale lookup) and correctly lets an account that
+    // crosses the threshold on this very call unlock specialty exercises the
+    // same session rather than waiting for the next one.
+    final hasIntermediateStatus =
+        await progressionRepository.getStatusAchievedDate('Intermediate') !=
+            null;
+
     // 4. Select exercises corresponding to the scheduled training focus:
     //    - Filter out exercises whose movement patterns are locked under the 48h recovery gate.
     //    - Filter out exercises requiring equipment not present in availableEquipment.
     //    - Wire isPlyometricsAllowed: if female profile has joint pain, exclude plyometric exercises.
+    //    - Cap difficultyTier for accounts that haven't reached Intermediate status yet.
     final excludePlyometrics = femaleProfile != null &&
         !FemalePhysiologyWrapper.isPlyometricsAllowed(profile: femaleProfile);
 
@@ -318,6 +358,12 @@ class SbeeEngine {
       final hasEquipment = exercise.equipmentRequirements
           .every((req) => availableEquipment.contains(req));
       if (!hasEquipment) continue;
+
+      // Beginner tier cap
+      if (!hasIntermediateStatus &&
+          exercise.difficultyTier > beginnerMaxDifficultyTier) {
+        continue;
+      }
 
       // 48h Recovery Lock check
       final isLocked = await isMovementLocked(
@@ -339,15 +385,20 @@ class SbeeEngine {
 
     // 4.5. All-patterns-locked recovery fallback (see recoveryFallbackTargetRpe
     // doc comment for the science): if the 48h lock left literally nothing to
-    // program, recompute eligibility ignoring ONLY that lock -- equipment and
-    // the plyometric safety exclusion still apply -- so today becomes a very
-    // light session instead of an empty one.
+    // program, recompute eligibility ignoring ONLY that lock -- equipment, the
+    // beginner tier cap, and the plyometric safety exclusion still apply -- so
+    // today becomes a very light session instead of an empty one.
     var recoveryReason = RecoveryReason.none;
     if (filteredExercises.isEmpty) {
       for (final exercise in exerciseGraph.exercises) {
         final hasEquipment = exercise.equipmentRequirements
             .every((req) => availableEquipment.contains(req));
         if (!hasEquipment) continue;
+
+        if (!hasIntermediateStatus &&
+            exercise.difficultyTier > beginnerMaxDifficultyTier) {
+          continue;
+        }
 
         if (excludePlyometrics) {
           final nameLower = exercise.name.toLowerCase();
