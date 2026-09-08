@@ -11,6 +11,8 @@ class DriftWorkoutSessions extends Table {
   TextColumn get posturalWarning => text().nullable()();
   TextColumn get posturalWarningReason => text()
       .nullable()(); // Storing enum name as text to avoid integer reordering issues
+  TextColumn get recoveryReason =>
+      text().nullable()(); // Same enum-name-as-text convention as above
 
   @override
   Set<Column> get primaryKey => {id};

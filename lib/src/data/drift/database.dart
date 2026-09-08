@@ -14,7 +14,7 @@ class SbeeDatabase extends _$SbeeDatabase {
   SbeeDatabase(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -43,6 +43,12 @@ class SbeeDatabase extends _$SbeeDatabase {
             // introduced alongside DayType-driven prescription generation.
             await m.addColumn(driftWorkoutSets, driftWorkoutSets.minReps);
             await m.addColumn(driftWorkoutSets, driftWorkoutSets.maxReps);
+          }
+          if (from < 5) {
+            // Adds the recoveryReason column to DriftWorkoutSessions,
+            // introduced alongside the all-patterns-locked recovery fallback.
+            await m.addColumn(
+                driftWorkoutSessions, driftWorkoutSessions.recoveryReason);
           }
         },
       );

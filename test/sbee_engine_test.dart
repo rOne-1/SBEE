@@ -164,6 +164,88 @@ void main() {
     });
 
     test(
+        'generateNextWorkout falls back to a light recovery session when every movement pattern is locked',
+        () async {
+      final now = DateTime.now();
+
+      // Log a near-maximal set for the only movement pattern this graph has
+      // (pushing, via exA/exB) 1 hour ago -- locks pushing for 48h, which
+      // means every exercise in this graph is locked at once.
+      await sessionRepo.saveSession(WorkoutSession(
+        id: 'heavy_session',
+        startTime: now.subtract(const Duration(hours: 1)),
+        isCompleted: true,
+        sets: [
+          WorkoutSet(
+            id: 'heavy_set',
+            sessionId: 'heavy_session',
+            exerciseId: 'A',
+            movementPattern: MovementPattern.pushing,
+            setNumber: 1,
+            reps: 5,
+            targetRpe: 9,
+            reportedRpe: 9,
+            variables: const MillerVariables(),
+            timestamp: now.subtract(const Duration(hours: 1)),
+          ),
+        ],
+      ));
+
+      final workout = await engine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: now,
+        // exB (bands) stays excluded regardless; exA (bodyweight) is the
+        // only candidate, and it would normally be filtered out by the lock.
+        availableEquipment: {},
+      );
+
+      expect(workout.sets, isNotEmpty,
+          reason:
+              'Should fall back to a light session instead of generating nothing');
+      expect(workout.recoveryReason,
+          equals(RecoveryReason.allMovementPatternsLocked));
+      expect(
+          workout.sets
+              .every((s) => s.targetRpe == SbeeEngine.recoveryFallbackTargetRpe),
+          isTrue,
+          reason: 'Every set should be capped at the recovery-fallback RPE');
+      final exASets =
+          workout.sets.where((s) => s.exerciseId == 'A').length;
+      expect(exASets, equals(SbeeEngine.recoveryFallbackSetsCount));
+      expect(workout.posturalWarningReason, equals(PosturalWarningReason.none),
+          reason:
+              'Postural push/pull balancing should not fire during a recovery fallback session');
+    });
+
+    test(
+        'generateNextWorkout stays empty (no recovery fallback) when nothing is equipment-eligible even ignoring the lock',
+        () async {
+      final bandsOnlyGraph = ExerciseGraph({
+        const Exercise(
+          id: 'bandsOnly',
+          name: 'Band Row',
+          movementPattern: MovementPattern.pulling,
+          difficultyTier: 1,
+          equipmentRequirements: {Equipment.bands},
+        ): <Exercise>{},
+      });
+      final bandsOnlyEngine = SbeeEngine(
+        sessionRepository: sessionRepo,
+        progressionRepository: progressionRepo,
+        exerciseGraph: bandsOnlyGraph,
+      );
+
+      final workout = await bandsOnlyEngine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: DateTime.now(),
+        availableEquipment: const {}, // No bands, and the only exercise needs them
+      );
+
+      expect(workout.sets, isEmpty);
+      expect(workout.recoveryReason, equals(RecoveryReason.none));
+    });
+
+    test(
         'generateNextWorkout prescribes DayType-driven reps/RPE instead of a hardcoded default',
         () async {
       final now = DateTime.now();

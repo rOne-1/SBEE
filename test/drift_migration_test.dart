@@ -5,7 +5,7 @@ import 'package:sbee/sbee.dart';
 
 void main() {
   group('Drift Database Migration Tests', () {
-    test('Upgrade path from schema version 1 to 4 runs successfully', () async {
+    test('Upgrade path from schema version 1 to 5 runs successfully', () async {
       // 1. Open a raw in-memory sqlite3 database
       final rawDb = sqlite3.openInMemory();
 
@@ -88,7 +88,11 @@ void main() {
       expect(columnNames, contains('min_reps'));
       expect(columnNames, contains('max_reps'));
 
-      // 5. Test inserts and reads into the version 3/4 columns via repositories
+      columns = rawDb.select('PRAGMA table_info(drift_workout_sessions);');
+      columnNames = columns.map((row) => row['name'] as String).toList();
+      expect(columnNames, contains('recovery_reason'));
+
+      // 5. Test inserts and reads into the version 3/4/5 columns via repositories
       final sessionRepo = DriftSessionRepository(db);
       final now = DateTime.now();
       final testSession = WorkoutSession(
@@ -99,6 +103,7 @@ void main() {
         dayType: DayType.veryHeavy,
         posturalWarning: 'Historical deficit warning',
         posturalWarningReason: PosturalWarningReason.historicalDeficit,
+        recoveryReason: RecoveryReason.allMovementPatternsLocked,
         sets: [
           WorkoutSet(
             id: 'set_v3_test',
@@ -126,6 +131,8 @@ void main() {
       expect(retrieved.posturalWarning, equals('Historical deficit warning'));
       expect(retrieved.posturalWarningReason,
           equals(PosturalWarningReason.historicalDeficit));
+      expect(retrieved.recoveryReason,
+          equals(RecoveryReason.allMovementPatternsLocked));
       expect(retrieved.sets.length, equals(1));
       expect(retrieved.sets.first.restDuration,
           equals(const Duration(seconds: 45)));

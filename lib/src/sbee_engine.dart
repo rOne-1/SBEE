@@ -48,6 +48,41 @@ class SbeeEngine {
   /// Default work-to-rep pacing assumed for EMOM generation on `highLactic` days.
   static const int emomSecondsPerRep = 3;
 
+  /// SAFETY-FEATURE SCIENCE NOTE: All-Patterns-Locked Recovery Fallback
+  /// `SafetyRules.isMovementLocked` locks a single movement pattern for 48h
+  /// once it's been trained at RPE>=8 -- near-maximal effort, the zone
+  /// associated with the greatest muscle damage and the longest
+  /// neuromuscular recovery window in the RPE/RIR autoregulation literature
+  /// (e.g. Zourdos et al.'s RPE-based load prescription, Helms et al.'s
+  /// autoregulation guidance). That's a reasonable per-pattern rule, but
+  /// nothing previously handled the case where a user trains hard across
+  /// their *entire* routine in a short span and every pattern ends up
+  /// locked at once: `generateNextWorkout` would return a session with zero
+  /// exercises. An empty session is worse than a light one for two
+  /// independent reasons: (1) adherence/habit-formation research
+  /// consistently finds a broken routine -- nothing to do today -- is a
+  /// bigger dropout risk than an easy session (the "never miss twice"
+  /// principle: skipping a scheduled session, even a token one, is where
+  /// habits actually collapse); (2) light movement on a recently-fatigued
+  /// pattern ("active recovery") is associated with better perceived
+  /// recovery and reduced soreness versus complete rest, provided intensity
+  /// stays low enough to not add meaningful additional fatigue.
+  ///
+  /// This fallback is deliberately lighter than even a scheduled deload
+  /// (`PeriodizationScheduler.applyDeload` caps at RPE 6 / 50% of the
+  /// DayType's prescribed volume, which assumes the athlete is only
+  /// moderately fresh going into a planned reduction). Here, every pattern
+  /// was JUST pushed to near-failure within the last 48h, so intensity sits
+  /// at the bottom of the RPE scale -- "I could do this many more times,"
+  /// not a training stimulus -- and volume is cut to a flat floor rather
+  /// than a percentage of an already-reduced prescription. If this ever
+  /// needs to be gentler or firmer, tune these two constants together
+  /// rather than reusing the deload constants, since the two scenarios
+  /// (planned periodization vs. reactive whole-body fatigue) call for
+  /// different floors.
+  static const int recoveryFallbackTargetRpe = 4;
+  static const int recoveryFallbackSetsCount = 2;
+
   SbeeEngine({
     required this.sessionRepository,
     required this.progressionRepository,
@@ -302,6 +337,32 @@ class SbeeEngine {
       filteredExercises.add(exercise);
     }
 
+    // 4.5. All-patterns-locked recovery fallback (see recoveryFallbackTargetRpe
+    // doc comment for the science): if the 48h lock left literally nothing to
+    // program, recompute eligibility ignoring ONLY that lock -- equipment and
+    // the plyometric safety exclusion still apply -- so today becomes a very
+    // light session instead of an empty one.
+    var recoveryReason = RecoveryReason.none;
+    if (filteredExercises.isEmpty) {
+      for (final exercise in exerciseGraph.exercises) {
+        final hasEquipment = exercise.equipmentRequirements
+            .every((req) => availableEquipment.contains(req));
+        if (!hasEquipment) continue;
+
+        if (excludePlyometrics) {
+          final nameLower = exercise.name.toLowerCase();
+          if (nameLower.contains('jumping') || nameLower.contains('plyo')) {
+            continue;
+          }
+        }
+
+        filteredExercises.add(exercise);
+      }
+      if (filteredExercises.isNotEmpty) {
+        recoveryReason = RecoveryReason.allMovementPatternsLocked;
+      }
+    }
+
     // 5. Calculate H_pull and H_push from the 14-day history. Queried directly with a bounded
     // 14-day range rather than filtering an already-fetched full history (there is no full
     // history fetch left in this method at all as of the query-scaling fix).
@@ -336,82 +397,92 @@ class SbeeEngine {
       return count;
     }
 
-    // Group exercises by pattern.
-    final pullingExercises = <Exercise>[];
-    final pushingExercises = <Exercise>[];
-    final otherExercises = <Exercise>[];
-
-    for (final ex in filteredExercises) {
-      if (ex.movementPattern == MovementPattern.pulling) {
-        pullingExercises.add(ex);
-      } else if (ex.movementPattern == MovementPattern.pushing) {
-        pushingExercises.add(ex);
-      } else {
-        otherExercises.add(ex);
-      }
-    }
-
-    // Sum total new pulling sets N_pull.
-    var nPull = 0;
-    for (final ex in pullingExercises) {
-      nPull += calculateExerciseSetsCount(ex);
-    }
-
-    // Shuffle the pushing exercises list deterministically to promote variety.
-    final shuffledPushing = List<Exercise>.from(pushingExercises);
-    shuffledPushing.shuffle(Random(currentTime.millisecondsSinceEpoch));
-
-    final selectedPushing = <Exercise>[];
-    var nPush = 0;
-
     String? posturalWarning;
     PosturalWarningReason posturalWarningReason = PosturalWarningReason.none;
+    final List<Exercise> finalExercises;
 
-    final fallbackNoPulling =
-        pullingExercises.isEmpty && pushingExercises.isNotEmpty;
-
-    if (fallbackNoPulling) {
-      // Generate pushing exercises anyway
-      selectedPushing.addAll(shuffledPushing);
-      for (final ex in shuffledPushing) {
-        nPush += calculateExerciseSetsCount(ex);
-      }
-      posturalWarning =
-          'Postural warning: Pushing exercises generated without sufficient pulling options (2:1 ratio not satisfied).';
-      posturalWarningReason = PosturalWarningReason.noPullingAvailable;
+    if (recoveryReason != RecoveryReason.none) {
+      // Recovery-fallback sessions include everything eligible outright.
+      // Postural (push/pull) balancing is a training-stress management
+      // concern that doesn't apply at this volume/intensity floor -- there's
+      // no meaningful "too much pushing" at 2 sets and RPE 4.
+      finalExercises = filteredExercises;
     } else {
-      // Select pushing exercises sequentially checking the 2:1 postural balance ratio
-      for (final ex in shuffledPushing) {
-        final setsCount = calculateExerciseSetsCount(ex);
-        if (hPull + nPull >= 2 * (hPush + nPush + setsCount)) {
-          selectedPushing.add(ex);
-          nPush += setsCount;
+      // Group exercises by pattern.
+      final pullingExercises = <Exercise>[];
+      final pushingExercises = <Exercise>[];
+      final otherExercises = <Exercise>[];
+
+      for (final ex in filteredExercises) {
+        if (ex.movementPattern == MovementPattern.pulling) {
+          pullingExercises.add(ex);
+        } else if (ex.movementPattern == MovementPattern.pushing) {
+          pushingExercises.add(ex);
+        } else {
+          otherExercises.add(ex);
         }
       }
-    }
 
-    // Construct final list of exercises maintaining original order where applicable.
-    // SCALING CONSIDERATION: Unconditional inclusion of all pulling exercises is a known scaling consideration for future large-scale catalogs.
-    // SCALING CONSIDERATION: Unconditional inclusion of all other-pattern exercises is also a scaling consideration if an exercise-per-session cap is introduced in the future.
-    final finalExercises = <Exercise>[];
-    for (final ex in filteredExercises) {
-      if (ex.movementPattern == MovementPattern.pulling) {
-        finalExercises.add(ex);
-      } else if (ex.movementPattern == MovementPattern.pushing) {
-        if (selectedPushing.contains(ex)) {
-          finalExercises.add(ex);
-        }
-      } else {
-        finalExercises.add(ex);
+      // Sum total new pulling sets N_pull.
+      var nPull = 0;
+      for (final ex in pullingExercises) {
+        nPull += calculateExerciseSetsCount(ex);
       }
-    }
 
-    // Verify 2:1 ratio (combined history + session)
-    if (posturalWarningReason == PosturalWarningReason.none) {
-      if ((hPull + nPull) < 2 * (hPush + nPush)) {
+      // Shuffle the pushing exercises list deterministically to promote variety.
+      final shuffledPushing = List<Exercise>.from(pushingExercises);
+      shuffledPushing.shuffle(Random(currentTime.millisecondsSinceEpoch));
+
+      final selectedPushing = <Exercise>[];
+      var nPush = 0;
+
+      final fallbackNoPulling =
+          pullingExercises.isEmpty && pushingExercises.isNotEmpty;
+
+      if (fallbackNoPulling) {
+        // Generate pushing exercises anyway
+        selectedPushing.addAll(shuffledPushing);
+        for (final ex in shuffledPushing) {
+          nPush += calculateExerciseSetsCount(ex);
+        }
         posturalWarning =
-            'Postural warning: 2:1 pull-to-push ratio not satisfied due to historical deficit.';
-        posturalWarningReason = PosturalWarningReason.historicalDeficit;
+            'Postural warning: Pushing exercises generated without sufficient pulling options (2:1 ratio not satisfied).';
+        posturalWarningReason = PosturalWarningReason.noPullingAvailable;
+      } else {
+        // Select pushing exercises sequentially checking the 2:1 postural balance ratio
+        for (final ex in shuffledPushing) {
+          final setsCount = calculateExerciseSetsCount(ex);
+          if (hPull + nPull >= 2 * (hPush + nPush + setsCount)) {
+            selectedPushing.add(ex);
+            nPush += setsCount;
+          }
+        }
+      }
+
+      // Construct final list of exercises maintaining original order where applicable.
+      // SCALING CONSIDERATION: Unconditional inclusion of all pulling exercises is a known scaling consideration for future large-scale catalogs.
+      // SCALING CONSIDERATION: Unconditional inclusion of all other-pattern exercises is also a scaling consideration if an exercise-per-session cap is introduced in the future.
+      final built = <Exercise>[];
+      for (final ex in filteredExercises) {
+        if (ex.movementPattern == MovementPattern.pulling) {
+          built.add(ex);
+        } else if (ex.movementPattern == MovementPattern.pushing) {
+          if (selectedPushing.contains(ex)) {
+            built.add(ex);
+          }
+        } else {
+          built.add(ex);
+        }
+      }
+      finalExercises = built;
+
+      // Verify 2:1 ratio (combined history + session)
+      if (posturalWarningReason == PosturalWarningReason.none) {
+        if ((hPull + nPull) < 2 * (hPush + nPush)) {
+          posturalWarning =
+              'Postural warning: 2:1 pull-to-push ratio not satisfied due to historical deficit.';
+          posturalWarningReason = PosturalWarningReason.historicalDeficit;
+        }
       }
     }
 
@@ -426,7 +497,9 @@ class SbeeEngine {
           const MillerVariables(
               load: 1, bodyPosition: 1, rom: 1, height: 1, tempo: 1);
 
-      final setsCount = calculateExerciseSetsCount(exercise);
+      final setsCount = recoveryReason != RecoveryReason.none
+          ? recoveryFallbackSetsCount
+          : calculateExerciseSetsCount(exercise);
 
       // Derive reps/RPE from the DayType's locked RM-zone prescription (resolved
       // once, above). highLactic is the exception: it prescribes an
@@ -468,6 +541,17 @@ class SbeeEngine {
       if (femaleProfile != null) {
         targetRpeForSet = FemalePhysiologyWrapper.adjustTargetRpe(
             originalTargetRpe: targetRpeForSet, profile: femaleProfile);
+      }
+      // Recovery fallback is the most conservative signal in play, so it
+      // overrides deload/female adjustments rather than composing with them --
+      // see recoveryFallbackTargetRpe's doc comment for why this floor is
+      // lower than deload's.
+      if (recoveryReason != RecoveryReason.none) {
+        targetRpeForSet = recoveryFallbackTargetRpe;
+        dayTypeCues = [
+          ...dayTypeCues,
+          'Active recovery: everything trained hard recently, so keep this light -- not a normal training stimulus.',
+        ];
       }
 
       final trainingFocus = (dayType == DayType.power ||
@@ -519,6 +603,7 @@ class SbeeEngine {
       dayType: dayType,
       posturalWarning: posturalWarning,
       posturalWarningReason: posturalWarningReason,
+      recoveryReason: recoveryReason,
     );
   }
 

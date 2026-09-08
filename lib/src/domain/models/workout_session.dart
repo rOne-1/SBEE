@@ -85,6 +85,25 @@ enum PosturalWarningReason {
   historicalDeficit,
 }
 
+/// Explains why a generated session deviates from its normal DayType
+/// prescription for a reason distinct from postural (push/pull) balance --
+/// specifically, whole-body fatigue. Kept as its own enum rather than folded
+/// into [PosturalWarningReason], which is documented and tested as
+/// specifically about push/pull ratio, not fatigue management.
+enum RecoveryReason {
+  none,
+
+  /// Every movement pattern the exercise pool could otherwise draw from was
+  /// under the 48h post-RPE8 recovery lock at once (see
+  /// `SafetyRules.isMovementLocked`), which would otherwise leave the
+  /// session with zero exercises. Rather than generating nothing, the
+  /// engine falls back to the same equipment-eligible catalog at a steep
+  /// volume/intensity floor (`SbeeEngine.recoveryFallbackTargetRpe` /
+  /// `recoveryFallbackSetsCount`) -- active-recovery-style light movement,
+  /// not a suspension of the lock itself.
+  allMovementPatternsLocked,
+}
+
 /// Represents a workout session containing multiple exercise sets.
 class WorkoutSession {
   final String id;
@@ -95,6 +114,7 @@ class WorkoutSession {
   final DayType? dayType; // Null if not scheduled or custom
   final String? posturalWarning;
   final PosturalWarningReason posturalWarningReason;
+  final RecoveryReason recoveryReason;
 
   const WorkoutSession({
     required this.id,
@@ -105,6 +125,7 @@ class WorkoutSession {
     this.dayType,
     this.posturalWarning,
     this.posturalWarningReason = PosturalWarningReason.none,
+    this.recoveryReason = RecoveryReason.none,
   });
 
   WorkoutSession copyWith({
@@ -116,6 +137,7 @@ class WorkoutSession {
     DayType? dayType,
     String? posturalWarning,
     PosturalWarningReason? posturalWarningReason,
+    RecoveryReason? recoveryReason,
   }) {
     return WorkoutSession(
       id: id ?? this.id,
@@ -127,6 +149,7 @@ class WorkoutSession {
       posturalWarning: posturalWarning ?? this.posturalWarning,
       posturalWarningReason:
           posturalWarningReason ?? this.posturalWarningReason,
+      recoveryReason: recoveryReason ?? this.recoveryReason,
     );
   }
 }

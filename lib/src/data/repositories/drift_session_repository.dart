@@ -52,6 +52,7 @@ class DriftSessionRepository implements SessionRepository {
                 dayType: session.dayType?.index,
                 posturalWarning: session.posturalWarning,
                 posturalWarningReason: session.posturalWarningReason.name,
+                recoveryReason: session.recoveryReason.name,
               ),
             );
 
@@ -143,6 +144,16 @@ class DriftSessionRepository implements SessionRepository {
         }
       }
 
+      RecoveryReason parsedRecoveryReason = RecoveryReason.none;
+      if (sessionRow.recoveryReason != null) {
+        for (final r in RecoveryReason.values) {
+          if (r.name == sessionRow.recoveryReason) {
+            parsedRecoveryReason = r;
+            break;
+          }
+        }
+      }
+
       return WorkoutSession(
         id: sessionRow.id,
         startTime: sessionRow.startTime,
@@ -154,6 +165,7 @@ class DriftSessionRepository implements SessionRepository {
             : null,
         posturalWarning: sessionRow.posturalWarning,
         posturalWarningReason: parsedReason,
+        recoveryReason: parsedRecoveryReason,
       );
     } catch (e) {
       throw SessionRepositoryException('Failed to read session $id', e);
