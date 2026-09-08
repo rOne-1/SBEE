@@ -205,6 +205,7 @@ const WorkoutSession({
   DayType? dayType,
   String? posturalWarning,
   PosturalWarningReason posturalWarningReason = PosturalWarningReason.none,
+  RecoveryReason recoveryReason = RecoveryReason.none,
 });
 ```
 
@@ -213,6 +214,11 @@ Represents warning reasons corresponding to postural alignment issues flagged du
 - `PosturalWarningReason.none`: No postural warning active.
 - `PosturalWarningReason.noPullingAvailable`: Bypassed the 2:1 safety ratio because no pulling exercises were available in the candidate pool.
 - `PosturalWarningReason.historicalDeficit`: The 2:1 ratio is not satisfied due to a historical pull set deficit.
+
+### `RecoveryReason` (Enum)
+Represents reasons a generated session deviates from its DayType prescription for whole-body fatigue management, distinct from postural (push/pull) balance:
+- `RecoveryReason.none`: No recovery fallback active.
+- `RecoveryReason.allMovementPatternsLocked`: Every movement pattern was under the 48h post-RPE8 recovery lock at once (see `SafetyRules.isMovementLocked`), which would otherwise leave the session with zero exercises. The session falls back to the same equipment-eligible catalog at `SbeeEngine.recoveryFallbackTargetRpe` / `recoveryFallbackSetsCount` instead of the DayType's normal prescription.
 
 ---
 

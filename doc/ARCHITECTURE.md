@@ -143,6 +143,14 @@ To ensure musculoskeletal health and postural alignment, SBEE enforces a strict 
 - **Historical Deficits**: If the combined sets do not satisfy the 2:1 ratio (due to an uncorrectable historical deficit where no new pushes can be generated or during the fallback), the session is marked with `PosturalWarningReason.historicalDeficit`.
 - **Scaling Considerations**: Unconditionally including all pulling and other exercises in the final workout session are known scaling points, which may require introducing size limits or exercise caps for larger exercise catalogs in the future.
 
+### E. All-Patterns-Locked Recovery Fallback
+`SafetyRules.isMovementLocked` locks a single movement pattern for 48h once it's trained at RPE>=8. If a user trains hard across their entire routine in a short span, every pattern can end up locked at once — with nothing else in place, `generateNextWorkout` would return a session with zero exercises, which is worse for adherence than a light one (a broken routine is a bigger dropout risk than an easy session) and forfeits the recovery benefit of light movement over complete rest.
+
+- **Trigger**: After equipment and 48h-lock filtering leaves the candidate pool empty, the engine recomputes eligibility ignoring ONLY the lock (equipment and the plyometric safety exclusion still apply). If anything qualifies, `recoveryReason` is set to `RecoveryReason.allMovementPatternsLocked`.
+- **Intensity Floor**: Every generated set is capped at `SbeeEngine.recoveryFallbackTargetRpe` (4) and `SbeeEngine.recoveryFallbackSetsCount` (2) sets per exercise — deliberately lower than a scheduled deload (RPE 6 / 50% volume), since deload assumes an athlete who's only moderately fresh going into a planned reduction, whereas this reacts to every pattern having JUST been pushed to near-failure.
+- **Postural Balancing Skipped**: Push/pull balancing (section D above) doesn't run for these sessions — it's a training-stress management concern that doesn't apply at this intensity floor.
+- **No Interaction With The Lock Itself**: This fallback does not unlock or shorten the 48h window for any pattern; it only changes what gets generated when the lock would otherwise leave nothing to program.
+
 ---
 
 ## 4. Persistence Architecture

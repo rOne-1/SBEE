@@ -115,6 +115,13 @@ Enforcing a 2:1 pull-to-push set-volume ratio is required for preventing shoulde
   If no pulling exercises are available in the candidate pool, the engine falls back to select pushing exercises anyway and flags the session with `PosturalWarningReason.noPullingAvailable`. Deficits that cannot be corrected are flagged as `PosturalWarningReason.historicalDeficit`.
 - **Scaling Points**: All other-pattern and pulling exercises are included unconditionally in their original order. For massive catalogs, introducing sizing constraints or exercise count caps is deferred as a known scaling point.
 
+### `APP-SPECIFIC DESIGN DECISION`: All-Patterns-Locked Recovery Fallback
+A user training hard across their entire routine in a short span can trigger the 48h post-RPE8 recovery lock on every movement pattern simultaneously, which previously left `generateNextWorkout` with nothing to program.
+
+- **Problem**: `generateNextWorkout` returned a session with zero exercises whenever the lock removed every pattern from the candidate pool at once. An empty session is worse for adherence than a light one — habit-formation research treats a broken routine as a bigger dropout risk than an easy session — and forfeits the recovery benefit light movement has over complete rest.
+- **Decision**: When the lock leaves the pool empty, the engine recomputes eligibility ignoring ONLY that lock (equipment and the plyometric exclusion still apply) and, if anything qualifies, generates a session capped at `SbeeEngine.recoveryFallbackTargetRpe` (4) and `recoveryFallbackSetsCount` (2) — deliberately below even a scheduled deload's RPE 6 / 50% volume, since deload assumes moderate freshness going into a planned reduction while this reacts to every pattern having just been pushed to near-failure. Postural (push/pull) balancing is skipped for these sessions. Flagged via `WorkoutSession.recoveryReason = RecoveryReason.allMovementPatternsLocked` so host apps can explain the reduced session instead of surfacing a dead end.
+- **Scope**: This does not shorten or bypass the 48h lock itself — the lock still governs normal generation; this only changes what happens when it would otherwise produce nothing.
+
 ---
 
 ## 4. Database Schema Versioning
@@ -129,6 +136,8 @@ Drift persistence schema versions are tracked as follows:
   - Added `posturalWarning` and `posturalWarningReason` text columns to `DriftWorkoutSessions` table.
 - **Schema Version 4**: Added DayType-driven prescription range tracking:
   - Added nullable `minReps` and `maxReps` integer columns to `DriftWorkoutSets`, backing `WorkoutSet`'s new rep-range fields.
+- **Schema Version 5**: Added the all-patterns-locked recovery fallback:
+  - Added nullable `recoveryReason` text column to `DriftWorkoutSessions`, backing `WorkoutSession`'s new `RecoveryReason` field (same enum-name-as-text convention as `posturalWarningReason`).
 
 ---
 
