@@ -164,6 +164,51 @@ void main() {
     });
 
     test(
+        'generateNextWorkout excludes plyometrics via the general hasJointPain flag, with no FemaleProfile at all',
+        () async {
+      // Before this flag existed, excluding plyometrics required a
+      // FemaleProfile AND age >= 45 AND hasJointPain -- a general-population
+      // account had no way to ask for jumping/high-skill movements to be
+      // excluded at all.
+      final workoutExcluded = await engine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: DateTime.now(),
+        availableEquipment: {Equipment.bands},
+        hasJointPain: true,
+      );
+      expect(workoutExcluded.sets.any((s) => s.exerciseId == 'B'), isFalse,
+          reason: 'General hasJointPain flag should exclude plyometrics with no profile involved');
+
+      final workoutAllowed = await engine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: DateTime.now(),
+        availableEquipment: {Equipment.bands},
+        hasJointPain: false,
+      );
+      expect(workoutAllowed.sets.any((s) => s.exerciseId == 'B'), isTrue,
+          reason: 'Default (false) should not exclude anything');
+    });
+
+    test(
+        'generateNextWorkout uses DayType-driven rest for a general account, not a flat 90s',
+        () async {
+      // Before this fix, restDuration was only ever DayType-aware for
+      // accounts with a FemaleProfile; everyone else always got a flat 90s
+      // regardless of whether the day was a strength or conditioning focus.
+      final workout = await engine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: DateTime.now(),
+        availableEquipment: {},
+      );
+      final prescription = DayTypePrescription.forDayType(workout.dayType!);
+      expect(workout.sets, isNotEmpty);
+      for (final set in workout.sets) {
+        expect(set.restDuration, equals(prescription.restInterval),
+            reason: 'General accounts should get the DayType-driven rest interval by default');
+      }
+    });
+
+    test(
         'generateNextWorkout falls back to a light recovery session when every movement pattern is locked',
         () async {
       final now = DateTime.now();

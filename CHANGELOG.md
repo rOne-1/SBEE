@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+Beginner-safety pass: three related gaps found by walking through the app as a complete-beginner, sedentary, low-mobility persona.
+
+- **All-patterns-locked recovery fallback.** `generateNextWorkout` previously returned a session with zero exercises whenever the 48h post-RPE8 lock removed every movement pattern from the candidate pool at once. It now falls back to the same equipment-eligible catalog at a floor deliberately below even a scheduled deload (`SbeeEngine.recoveryFallbackTargetRpe` = 4, `recoveryFallbackSetsCount` = 2), flagged via the new `WorkoutSession.recoveryReason` (`RecoveryReason` enum). Schema v4 → v5 adds the `recovery_reason` column.
+- **Whole-account beginner exercise-tier cap.** Exercise selection filtered by equipment and the recovery lock but never by `difficultyTier` — a brand-new account could be handed tier-6 movements (pistol squats, suspension-trainer fallouts) in its very first session. Every shared-core exercise is tier 1-3 and every Path specialty exercise is tier 4-6, so `generateNextWorkout` now caps candidates to `SbeeEngine.beginnerMaxDifficultyTier` (3) until the account reaches whole-account "Intermediate" status, including during the recovery fallback above.
+- **Generalized two features that were accidentally female-profile-only.** DayType-aware rest intervals (45s conditioning / 150s strength) and joint-pain-driven plyometric exclusion both existed only inside the `FemaleProfile`/`FemalePhysiologyWrapper` path, even though neither is population-specific. Moved the rest baseline to `DayTypePrescription.restInterval` (now the default for every account) and added a `hasJointPain` parameter directly to `generateNextWorkout`, independent of `FemaleProfile`. `FemalePhysiologyWrapper.adjustRestInterval`'s signature changed (`baseRest` instead of `originalRest`/`trainingFocus`) since it now only applies its own offset on top of the general baseline rather than recomputing it.
+- See `doc/DECISIONS_LOG.md` for full rationale on all three.
+
 ## 0.4.0
 
 - **Replaced unbounded full-history table scans with targeted, indexed queries.** `generateNextWorkout` and `logSetPerformance` previously fetched every session/set ever recorded (`getSessionsInDateRange(DateTime(1970), ...)`) just to find a single most-recent value or a count. Added `getMostRecentCompletedSession`, `getEarliestCompletedSessionStart`, `getCompletedSessionCount`, `getReportedSetCountForExercise`, and `getActiveIncompleteSession` to `SessionRepository`, each backed by a real `ORDER BY ... LIMIT 1` / `COUNT` / `MIN` query in `DriftSessionRepository`. No behavior change — the full existing test suite (including all 1000-iteration property tests) passes unchanged.

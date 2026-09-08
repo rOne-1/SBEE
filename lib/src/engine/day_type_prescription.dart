@@ -38,12 +38,25 @@ class DayTypePrescription {
   /// starts from.
   final int setsCount;
 
+  /// APP-SPECIFIC DESIGN DECISION: DayType-Driven Rest Interval
+  /// This 45s-conditioning/150s-strength split is standard rest-interval
+  /// programming (short rest preserves metabolic stress and pacing on
+  /// conditioning-focused work; long rest lets ATP-PC and neuromuscular
+  /// systems recover between near-maximal or explosive strength efforts) --
+  /// it was previously implemented ONLY inside `FemalePhysiologyWrapper.
+  /// adjustRestInterval`, so a user without a `FemaleProfile` always got a
+  /// flat 90s rest regardless of DayType. Moved here so it's the default for
+  /// every account; the wrapper now only applies its own early-follicular
+  /// offset on top of this value instead of recomputing it.
+  final Duration restInterval;
+
   const DayTypePrescription({
     required this.reps,
     required this.minReps,
     required this.maxReps,
     required this.targetRpe,
     required this.setsCount,
+    required this.restInterval,
   });
 
   /// Returns the locked prescription for [dayType].
@@ -55,32 +68,37 @@ class DayTypePrescription {
         // trained movement pattern once reported, which is the intended safety behavior.
         // 5 sets: standard heavy-day volume (e.g. 5x5-style) for a low-rep zone.
         return const DayTypePrescription(
-            reps: 4, minReps: 1, maxReps: 5, targetRpe: 9, setsCount: 5);
+            reps: 4, minReps: 1, maxReps: 5, targetRpe: 9, setsCount: 5,
+            restInterval: Duration(minutes: 2, seconds: 30));
       case DayType.moderate:
         // Hypertrophy / Metabolic Stress focus (8-12 RM). setsCount unchanged from
         // the prior flat default, preserving first-workout behavior exactly.
         return const DayTypePrescription(
-            reps: 10, minReps: 8, maxReps: 12, targetRpe: 8, setsCount: 4);
+            reps: 10, minReps: 8, maxReps: 12, targetRpe: 8, setsCount: 4,
+            restInterval: Duration(minutes: 2, seconds: 30));
       case DayType.power:
         // Rate of Force Development focus: low reps, but submaximal effort —
         // explosive/RFD work is intentionally not trained to failure, since
         // grinding reps degrades bar/movement speed, the actual training target.
         // 5 sets: more sets accumulate quality explosive reps without approaching failure.
         return const DayTypePrescription(
-            reps: 4, minReps: 3, maxReps: 5, targetRpe: 7, setsCount: 5);
+            reps: 4, minReps: 3, maxReps: 5, targetRpe: 7, setsCount: 5,
+            restInterval: Duration(seconds: 45));
       case DayType.veryLight:
         // Local Muscular Endurance focus (15-20+ RM). maxReps is capped at 20 as a
         // concrete stand-in for the open-ended "20+" zone described in DayType's docs.
         // 3 sets: each set is already long/fatiguing at this rep range, so fewer are needed.
         return const DayTypePrescription(
-            reps: 18, minReps: 15, maxReps: 20, targetRpe: 7, setsCount: 3);
+            reps: 18, minReps: 15, maxReps: 20, targetRpe: 7, setsCount: 3,
+            restInterval: Duration(seconds: 45));
       case DayType.highLactic:
         // Metabolic Buffering (Circuits/EMOM): not an RM-zone prescription at all.
         // The generator overrides reps/minReps/maxReps/targetRpe for this DayType
         // using IntensityTechniques.generateEmomRepCount instead; only setsCount
         // (read here as "EMOM rounds per exercise") is actually used from this entry.
         return const DayTypePrescription(
-            reps: 10, minReps: 10, maxReps: 10, targetRpe: 7, setsCount: 6);
+            reps: 10, minReps: 10, maxReps: 10, targetRpe: 7, setsCount: 6,
+            restInterval: Duration(seconds: 45));
     }
   }
 }

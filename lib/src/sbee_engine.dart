@@ -265,11 +265,24 @@ class SbeeEngine {
 
   /// Generates the next scheduled workout session, applying periodization,
   /// deload, detraining lockout redirection, and female physiology wrapper cues/rest adjustments.
+  ///
+  /// [hasJointPain]: general, profile-independent joint-pain/limited-mobility
+  /// flag -- excludes plyometric exercises the same way `femaleProfile`'s
+  /// age-45+-specific claim does, but available to every account regardless
+  /// of whether they have a `FemaleProfile` at all. Previously, excluding
+  /// plyometrics required BOTH a `FemaleProfile` AND `age >= 45` AND
+  /// `hasJointPain` (`FemalePhysiologyWrapper.isPlyometricsAllowed`) -- so a
+  /// user with real joint pain or limited mobility who wasn't 45+, or who
+  /// simply wasn't using the female-specific flow at all, had no way in the
+  /// entire app to ask for high-skill/high-impact movements to be excluded.
+  /// This parameter is that general accommodation; the narrower age+profile
+  /// claim still applies on top of it for the population it was written for.
   Future<WorkoutSession> generateNextWorkout({
     required String userId,
     required DateTime currentTime,
     required Set<Equipment> availableEquipment,
     FemaleProfile? femaleProfile,
+    bool hasJointPain = false,
   }) async {
     // 1. Fetch the program start date once; shared by the Intermediate-status check below
     // and the deload calculation in step 3 (both only ever need the earliest session's date).
@@ -347,10 +360,13 @@ class SbeeEngine {
     // 4. Select exercises corresponding to the scheduled training focus:
     //    - Filter out exercises whose movement patterns are locked under the 48h recovery gate.
     //    - Filter out exercises requiring equipment not present in availableEquipment.
-    //    - Wire isPlyometricsAllowed: if female profile has joint pain, exclude plyometric exercises.
+    //    - Exclude plyometrics if the general hasJointPain flag is set, OR if a female profile's
+    //      age+joint-pain-specific claim (isPlyometricsAllowed) gates it.
     //    - Cap difficultyTier for accounts that haven't reached Intermediate status yet.
-    final excludePlyometrics = femaleProfile != null &&
-        !FemalePhysiologyWrapper.isPlyometricsAllowed(profile: femaleProfile);
+    final excludePlyometrics = hasJointPain ||
+        (femaleProfile != null &&
+            !FemalePhysiologyWrapper.isPlyometricsAllowed(
+                profile: femaleProfile));
 
     final filteredExercises = <Exercise>[];
     for (final exercise in exerciseGraph.exercises) {
@@ -605,20 +621,16 @@ class SbeeEngine {
         ];
       }
 
-      final trainingFocus = (dayType == DayType.power ||
-              dayType == DayType.highLactic ||
-              dayType == DayType.veryLight)
-          ? 'conditioning'
-          : 'strength';
-
-      // Apply rest duration adjustRestInterval (conditioning 45s, strength 150s, menses +30s offset)
+      // DayType-driven rest interval (conditioning 45s / strength 150s, see
+      // DayTypePrescription.restInterval) is the default for every account;
+      // a female profile only ever adds its own early-follicular offset on
+      // top of it now.
       final restDuration = femaleProfile != null
           ? FemalePhysiologyWrapper.adjustRestInterval(
-              originalRest: const Duration(seconds: 90),
-              trainingFocus: trainingFocus,
+              baseRest: prescription.restInterval,
               profile: femaleProfile,
             )
-          : const Duration(seconds: 90);
+          : prescription.restInterval;
 
       // Append pelvic/spine safety cues and joint check flags to set instructions.
       final baseCues = femaleProfile != null

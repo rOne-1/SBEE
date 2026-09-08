@@ -54,16 +54,12 @@ void main() {
 
       // Untrained follicular gets +30s rest density addition
       final res1 = FemalePhysiologyWrapper.adjustRestInterval(
-          originalRest: baseRest,
-          trainingFocus: 'general',
-          profile: untrainedFollicular);
+          baseRest: baseRest, profile: untrainedFollicular);
       expect(res1, equals(const Duration(minutes: 1, seconds: 30)));
 
       // Trained follicular does not get it
       final res2 = FemalePhysiologyWrapper.adjustRestInterval(
-          originalRest: baseRest,
-          trainingFocus: 'general',
-          profile: trainedFollicular);
+          baseRest: baseRest, profile: trainedFollicular);
       expect(res2, equals(baseRest));
     });
 
@@ -179,29 +175,39 @@ void main() {
           isFalse);
     });
 
-    test('Recovery rest intervals pacing for conditioning and strength', () {
-      const profile = FemaleProfile(
+    test('adjustRestInterval only ever applies its own offset on top of the passed-in baseline', () {
+      // The conditioning-vs-strength baseline this used to compute internally
+      // moved to DayTypePrescription.restInterval (see day_type_prescription_test.dart)
+      // so it's the default for every account, not just FemaleProfile ones.
+      // This wrapper's only remaining job is the early-follicular +30s offset.
+      const trainedProfile = FemaleProfile(
         userStatus: 'Trained_Female',
         cycleDay: 10,
         hasKneeDiscomfort: false,
         age: 30,
         hasJointPain: false,
       );
+      const untrainedFollicular = FemaleProfile(
+        userStatus: 'Untrained_Female',
+        cycleDay: 2,
+        hasKneeDiscomfort: false,
+        age: 30,
+        hasJointPain: false,
+      );
 
-      final restCond = FemalePhysiologyWrapper.adjustRestInterval(
-          originalRest: const Duration(seconds: 15),
-          trainingFocus: 'conditioning',
-          profile: profile);
-      // Conditioning rest defaults to 45s (within 30-45s)
-      expect(restCond.inSeconds, equals(45));
+      const someBaseline = Duration(seconds: 45);
 
-      final restStr = FemalePhysiologyWrapper.adjustRestInterval(
-          originalRest: const Duration(seconds: 15),
-          trainingFocus: 'strength',
-          profile: profile);
-      // Strength rest defaults to 2m30s (within 2-3m)
-      expect(restStr.inMinutes, equals(2));
-      expect(restStr.inSeconds, equals(150));
+      expect(
+          FemalePhysiologyWrapper.adjustRestInterval(
+              baseRest: someBaseline, profile: trainedProfile),
+          equals(someBaseline),
+          reason: 'No offset applies outside the untrained early-follicular window');
+
+      expect(
+          FemalePhysiologyWrapper.adjustRestInterval(
+              baseRest: someBaseline, profile: untrainedFollicular),
+          equals(const Duration(seconds: 75)),
+          reason: 'Untrained + cycle day 1-3 adds a flat +30s on top of whatever baseline was passed in');
     });
   });
 }

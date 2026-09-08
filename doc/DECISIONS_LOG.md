@@ -129,6 +129,14 @@ Every exercise carries a `difficultyTier` (1-6), but exercise selection never us
 - **Decision**: reuse the existing whole-account "Intermediate" status detection (session B above) rather than inventing a new signal. Until that status is achieved, `generateNextWorkout` excludes any exercise with `difficultyTier > SbeeEngine.beginnerMaxDifficultyTier` (3) from the candidate pool, including during the recovery fallback — a fatigued beginner never gets bumped up to a specialty movement just because everything else was filtered out. This is a hard exclusion, not a soft/occasional exposure.
 - **Scope**: gates exercise-pool selection only. Chosen Path still determines theme and which specialty pool unlocks later; it no longer determines what's trainable on day one.
 
+### `APP-SPECIFIC DESIGN DECISION`: Generalizing Two Female-Wrapper-Gated Features
+Two behaviors were implemented only inside the `FemaleProfile`/`FemalePhysiologyWrapper` path even though neither is actually population-specific: DayType-aware rest intervals, and joint-pain-driven plyometric exclusion.
+
+- **Problem**: `restDuration` was only ever DayType-aware (45s conditioning / 150s strength) for accounts with a `FemaleProfile`; every general-population account got a flat 90s regardless of whether the day was a strength or conditioning focus. Separately, excluding plyometrics required a `FemaleProfile` **and** `age >= 45` **and** `hasJointPain` (`FemalePhysiologyWrapper.isPlyometricsAllowed`) — so a user with real joint pain or limited mobility who wasn't 45+, or wasn't using the female-specific flow at all, had no way anywhere in the app to ask for jumping/high-skill movements to be excluded.
+- **Decision**: moved the conditioning/strength rest baseline to `DayTypePrescription.restInterval` (see the schema/prescription decision above) so it's the default for every account; `FemalePhysiologyWrapper.adjustRestInterval` now only adds its own early-follicular `+30s` offset on top of that baseline instead of recomputing it. Added a new `hasJointPain` parameter directly to `generateNextWorkout`, independent of `FemaleProfile`, so any account can request plyometric exclusion; the narrower age-45+-specific claim (`isPlyometricsAllowed`) still applies on top for the population it was written for.
+- **Scope**: no existing `FemaleProfile` behavior changed for callers who don't also pass the new flag — a female-profile user under 45 with joint pain still isn't gated by `isPlyometricsAllowed` alone, exactly as before. What changed is that the accommodation is now *reachable* without a `FemaleProfile` at all.
+- **Lesson for future wrapper methods**: check whether new logic is genuinely population-specific before writing it inside `FemalePhysiologyWrapper` — see the caution note in ARCHITECTURE.md §3.A.
+
 ---
 
 ## 4. Database Schema Versioning
@@ -166,12 +174,12 @@ All 8 methods in [`FemalePhysiologyWrapper`](../lib/src/engine/female_wrapper.da
 | :-- | :--- | :--- | :--- |
 | 1 | `getEndocrineExplanation()` | `female_wrapper.dart:31` | Frames female tissue adaptation/lipolysis as primarily driven by Growth Hormone (GH) pulsatility, in deliberate contrast to a testosterone-centric model. |
 | 2 | `adjustTargetRpe()` | `female_wrapper.dart:38` | During cycle days 1–3 (early follicular) for an `Untrained_Female`, reduces target RPE by exactly `1`. |
-| 3 | `adjustRestInterval()` | `female_wrapper.dart:56` | Conditioning rest defaults to `45s` (within a claimed 30–45s range); heavy strength rest defaults to `2m30s` (within a claimed 2–3min range); early-follicular days add a further `+30s` rest for `Untrained_Female`. |
+| 3 | `adjustRestInterval()` | `female_wrapper.dart:56` | Early-follicular days add a `+30s` rest density buffer for `Untrained_Female`, on top of whatever baseline the caller passes in. (The conditioning-45s/strength-150s baseline this claim used to include has moved to `DayTypePrescription.restInterval` — general rest-interval-by-training-goal programming, not a female-specific claim, so it's tracked separately and is no longer part of this table's scope. It hasn't been independently verified either, just recategorized.) |
 | 4 | `getConditioningTargetVo2Max()` | `female_wrapper.dart:85` | Steady-state conditioning should target `55%–65%` of VO2 max. |
 | 5 | `getCorrectiveCues()` | `female_wrapper.dart:97` | Knee discomfort should trigger "McGill Big 3" and "Side Plank with Hip Abduction" cues, plus a `12–15` rep floor for lower-body sets. |
 | 6 | `adjustIntensityMetric()` | `female_wrapper.dart:128` | Age ≥ 45 should replace 1RM-based intensity with a `2–3 RIR` (Reps in Reserve) target. |
 | 7 | `adjustMinSets()` | `female_wrapper.dart:141` | Age ≥ 45 should mandate a minimum floor of `3` sets per movement pattern. |
-| 8 | `isPlyometricsAllowed()` | `female_wrapper.dart:154` | Age ≥ 45 **and** reported joint pain together should gate out plyometric exercises entirely. |
+| 8 | `isPlyometricsAllowed()` | `female_wrapper.dart:154` | Age ≥ 45 **and** reported joint pain together should gate out plyometric exercises entirely. (This is a narrower claim layered on top of `generateNextWorkout(hasJointPain: ...)`, a plain, non-physiology-specific accommodation available to every account regardless of age or profile — see ARCHITECTURE.md §3.A — which is not itself part of the unverified claim.) |
 
 **What would actually close this**, in order of rigor: (a) a sports-science/kinesiology-literate reviewer checking each numbered claim above against real citable sources and either confirming, correcting, or removing it; or (b) short of that, an explicit "informational, not medical advice" disclaimer surfaced to end users in the host app, so the gap is disclosed rather than silently implied to be settled science. A general web research pass can surface candidate literature but cannot by itself close claims this specific and this safety-adjacent — treat any such pass as a lead-generation step for a real reviewer, not a verification.
 
@@ -179,7 +187,7 @@ All 8 methods in [`FemalePhysiologyWrapper`](../lib/src/engine/female_wrapper.da
 
 ## 4.8. Versioning
 
-The current library version is `0.4.0`. All changes, database schema migrations, and feature additions are recorded in the [CHANGELOG.md](../CHANGELOG.md) in the repository root.
+The current library version is `0.5.0`. All changes, database schema migrations, and feature additions are recorded in the [CHANGELOG.md](../CHANGELOG.md) in the repository root.
 
 ---
 

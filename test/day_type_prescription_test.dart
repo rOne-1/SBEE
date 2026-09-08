@@ -61,5 +61,22 @@ void main() {
           reason:
               'RFD/power work should stay submaximal to preserve movement speed');
     });
+
+    test('restInterval is strength-length for strength-focused DayTypes and short for conditioning-focused ones', () {
+      // veryHeavy/moderate are near-maximal strength work -- long rest lets
+      // ATP-PC and neuromuscular systems recover. power/veryLight/highLactic
+      // are conditioning-flavored -- short rest preserves pacing/metabolic
+      // stress. This baseline used to live only inside
+      // FemalePhysiologyWrapper.adjustRestInterval, so a general (non-female-
+      // profile) account always got a flat 90s regardless of DayType.
+      const strengthRest = Duration(minutes: 2, seconds: 30);
+      const conditioningRest = Duration(seconds: 45);
+
+      expect(DayTypePrescription.forDayType(DayType.veryHeavy).restInterval, equals(strengthRest));
+      expect(DayTypePrescription.forDayType(DayType.moderate).restInterval, equals(strengthRest));
+      expect(DayTypePrescription.forDayType(DayType.power).restInterval, equals(conditioningRest));
+      expect(DayTypePrescription.forDayType(DayType.veryLight).restInterval, equals(conditioningRest));
+      expect(DayTypePrescription.forDayType(DayType.highLactic).restInterval, equals(conditioningRest));
+    });
   });
 }

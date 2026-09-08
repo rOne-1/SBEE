@@ -49,34 +49,26 @@ class FemalePhysiologyWrapper {
   }
 
   /// UNVERIFIED-BIBLIOGRAPHY SOURCE
-  /// Recovery Pacing & Early Follicular Rest Density:
-  /// - Sets 30-45s rest on conditioning but 2-3 mins on heavy strength.
-  /// - Applies rest density increase (+30s) if Untrained_Female is in cycle days 1–3.
+  /// Early Follicular Rest Density: applies a rest density increase (+30s)
+  /// on top of [baseRest] if Untrained_Female is in cycle days 1-3.
+  ///
+  /// The conditioning-vs-strength rest baseline this used to compute
+  /// internally (30-45s / 2-3min) is general rest-interval programming, not
+  /// a female-specific claim -- it's now `DayTypePrescription.restInterval`,
+  /// applied as the default for every account regardless of profile. This
+  /// wrapper only ever adds its own physiology-specific offset on top of
+  /// that baseline now, rather than recomputing (and previously gatekeeping)
+  /// it.
   /// Note: This is new logic, unit-test-covered (not decorated from a property-tested core method).
   static Duration adjustRestInterval({
-    required Duration originalRest,
-    required String trainingFocus, // "conditioning" or "strength"
+    required Duration baseRest,
     required FemaleProfile profile,
   }) {
-    Duration baseRest = originalRest;
-
-    // Apply recovery pacing focus
-    if (trainingFocus.toLowerCase() == 'conditioning') {
-      baseRest = const Duration(
-          seconds: 45); // default conditioning rest within 30-45s range
-    } else if (trainingFocus.toLowerCase() == 'strength') {
-      baseRest = const Duration(
-          minutes: 2,
-          seconds: 30); // default heavy strength rest within 2-3m range
-    }
-
-    // Apply early follicular adjustment (+30s rest density)
     if (profile.userStatus == 'Untrained_Female' &&
         profile.cycleDay >= 1 &&
         profile.cycleDay <= 3) {
-      baseRest = baseRest + const Duration(seconds: 30);
+      return baseRest + const Duration(seconds: 30);
     }
-
     return baseRest;
   }
 

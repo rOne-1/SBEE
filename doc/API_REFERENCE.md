@@ -41,8 +41,10 @@ Future<WorkoutSession> generateNextWorkout({
   required DateTime currentTime,
   required Set<Equipment> availableEquipment,
   FemaleProfile? femaleProfile,
+  bool hasJointPain = false,
 });
 ```
+- **`hasJointPain`**: general, profile-independent joint-pain/limited-mobility flag. Excludes plyometric exercises the same way `FemaleProfile`'s age-45+-specific claim does (`FemalePhysiologyWrapper.isPlyometricsAllowed`), but available to every account regardless of whether a `FemaleProfile` is supplied at all.
 
 #### `isMovementLocked`
 Queries if a specific movement pattern is locked under the 48-hour recovery gate.
@@ -96,11 +98,13 @@ const DayTypePrescription({
   required int maxReps,
   required int targetRpe,
   required int setsCount,
+  required Duration restInterval,
 });
 ```
 - **Static Constructor**: `static DayTypePrescription forDayType(DayType dayType)`
 - `highLactic`'s reps/minReps/maxReps/targetRpe are a neutral placeholder never actually surfaced to a generated set — `generateNextWorkout` overrides them using `IntensityTechniques.generateEmomRepCount` instead, since `highLactic` is an EMOM structure, not an RM-zone prescription. Its `setsCount` (read as "EMOM rounds per exercise") *is* used as-is.
 - `setsCount` is the base set count for the DayType, applied before the existing deload-halving and female-wrapper minimum-floor adjustments in `generateNextWorkout`.
+- `restInterval` is the default rest between sets for the DayType — 2m30s for the strength-focused DayTypes (`veryHeavy`, `moderate`), 45s for the conditioning-focused ones (`power`, `veryLight`, `highLactic`). This is the default for every account; a `FemaleProfile` only ever adds `FemalePhysiologyWrapper.adjustRestInterval`'s early-follicular offset on top of it.
 
 ### `Equipment` (Enum)
 Supported home and bodyweight training equipment options:
@@ -260,12 +264,11 @@ static int adjustTargetRpe({
 #### `adjustRestInterval`
 ```dart
 static Duration adjustRestInterval({
-  required Duration originalRest,
-  required String trainingFocus, // "conditioning" or "strength"
+  required Duration baseRest,
   required FemaleProfile profile,
 });
 ```
-- **Returns**: Adjusted rest interval duration. Conditioning defaults to `45s`, heavy strength defaults to `150s` (`2m 30s`). Adds a `30s` rest density buffer during cycle days 1-3 if `"Untrained_Female"`.
+- **Returns**: `baseRest` plus a `30s` rest density buffer during cycle days 1-3 if `"Untrained_Female"`, otherwise `baseRest` unchanged. The conditioning-vs-strength baseline (`45s` / `150s`) this used to compute internally moved to `DayTypePrescription.restInterval` — pass that in as `baseRest`.
 
 #### `getConditioningTargetVo2Max`
 ```dart
@@ -306,7 +309,7 @@ static bool isPlyometricsAllowed({
   required FemaleProfile profile,
 });
 ```
-- **Returns**: Returns `false` if the user is $\ge 45$ and has joint pain, gating plyometrics. Otherwise, returns `true`.
+- **Returns**: Returns `false` if the user is $\ge 45$ and has joint pain, gating plyometrics. Otherwise, returns `true`. This is a narrower, age-specific claim on top of the general `generateNextWorkout(hasJointPain: ...)` flag above — a `FemaleProfile` user's plyometric exclusion is `hasJointPain || !isPlyometricsAllowed(profile)`, not this function alone.
 
 ---
 

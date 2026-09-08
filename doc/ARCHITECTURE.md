@@ -95,6 +95,8 @@ To prevent the core safety-tested engine logic from becoming cluttered with popu
 
 This encapsulation ensures that if a new wrapper (e.g. for youth athletics or diabetic populations) is added in the future, it can be written as a separate pre-processing filter without modifying the core state changes in [SbeeEngine](../lib/src/sbee_engine.dart).
 
+**A caution from experience**: two pieces of logic that lived inside this wrapper turned out not to be population-specific at all — the conditioning-vs-strength rest baseline (`45s`/`150s`, general rest-interval programming) and joint-pain-driven plyometric exclusion (a plain safety accommodation, not tied to any specific physiology). Because they were only reachable through `FemaleProfile`, every general-population account got a flat rest interval regardless of DayType and had no way to ask for jumping/high-skill movements to be excluded at all. Both are now defaults in the core engine (`DayTypePrescription.restInterval`, `generateNextWorkout(hasJointPain: ...)`), with the wrapper only ever adding its own narrower, profile-specific adjustment on top. When adding a new wrapper method, check whether the underlying logic is actually general before scoping it to the wrapper — the pattern above is for population-*specific* heuristics, not a place to accidentally bury behavior everyone should get.
+
 ```
    [Host Application]
           │

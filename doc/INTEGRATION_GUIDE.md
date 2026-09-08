@@ -190,13 +190,15 @@ void queryFemalePhysiologyDirectly() {
   // - 'Knee Safety Rep Floor: Set a floor of 12-15 repetitions...'
   print('Cues: $cues');
 
-  // 3. Calculate cycle-adjusted rest intervals for a specific training focus
+  // 3. Apply the cycle-based rest offset on top of the DayType's own baseline
+  // (DayTypePrescription.restInterval -- 45s conditioning / 150s strength --
+  // is the default rest for every account, profile or not)
+  final baseline = DayTypePrescription.forDayType(DayType.power).restInterval; // 45s, power is conditioning-focused
   final rest = FemalePhysiologyWrapper.adjustRestInterval(
-    originalRest: const Duration(seconds: 90),
-    trainingFocus: 'conditioning',
+    baseRest: baseline,
     profile: profile,
   );
-  // Returns 75 seconds (45s base rest for conditioning + 30s follicular offset)
+  // Returns 75 seconds (45s conditioning baseline + 30s follicular offset)
   print('Adjusted Rest: ${rest.inSeconds} seconds');
 
   // 4. Check if plyometric exercises are allowed
