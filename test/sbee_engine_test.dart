@@ -471,6 +471,68 @@ void main() {
     });
 
     test(
+        'generateNextWorkout quarters setsCount when a scheduled deload week and beginner status coincide',
+        () async {
+      final now = DateTime.now();
+      // A single completed session ~30 days ago (no dayType) both: (a) marks
+      // the program start 30 days back, landing squarely in week index 4
+      // (30 ~/ 7 == 4, and 4 % 5 == 4) so PeriodizationScheduler.isDeloadActive
+      // is true, and (b) keeps the completed-session count at 1 -- nowhere
+      // near the 12-session Intermediate threshold -- so the account is
+      // still a "beginner" for calculateExerciseSetsCount's own taper.
+      await sessionRepo.saveSession(WorkoutSession(
+        id: 'program_start_session',
+        startTime: now.subtract(const Duration(days: 30)),
+        isCompleted: true,
+      ));
+
+      final workout = await engine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: now,
+        availableEquipment: {Equipment.bands},
+      );
+
+      // No dayType history, so the DUP rotation defaults to moderate
+      // (setsCount: 4). Deload halves it to 2; the beginner taper halves
+      // that again to 1 -- the documented "quartering" composition.
+      expect(workout.dayType, equals(DayType.moderate));
+      expect(workout.sets.where((s) => s.exerciseId == 'A').length, equals(1));
+      expect(workout.sets.where((s) => s.exerciseId == 'B').length, equals(1));
+    });
+
+    test(
+        'generateNextWorkout halves an odd-count DayType setsCount for a beginner account',
+        () async {
+      final now = DateTime.now();
+      // Seed one completed moderate session so the DUP rotation schedules
+      // veryHeavy next (prescribed setsCount: 5, an odd number) -- covers
+      // the .ceil() rounding behavior the moderate-day test (setsCount: 4,
+      // even) can't exercise. No Intermediate status is granted, so this
+      // account is still a beginner.
+      await sessionRepo.saveSession(WorkoutSession(
+        id: 'prior_moderate_session',
+        startTime: now.subtract(const Duration(days: 2)),
+        endTime: now
+            .subtract(const Duration(days: 2))
+            .add(const Duration(minutes: 30)),
+        isCompleted: true,
+        dayType: DayType.moderate,
+      ));
+
+      final workout = await engine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: now,
+        availableEquipment: {Equipment.bands},
+      );
+
+      expect(workout.dayType, equals(DayType.veryHeavy));
+      // veryHeavy's setsCount (5) halved and rounded up via .ceil() is 3,
+      // not the full 5.
+      expect(workout.sets.where((s) => s.exerciseId == 'A').length, equals(3));
+      expect(workout.sets.where((s) => s.exerciseId == 'B').length, equals(3));
+    });
+
+    test(
         'generateNextWorkout prescribes DayType-driven reps/RPE instead of a hardcoded default',
         () async {
       final now = DateTime.now();
