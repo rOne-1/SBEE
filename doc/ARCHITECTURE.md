@@ -162,6 +162,13 @@ Every exercise carries a `difficultyTier` (1-6), but until this feature nothing 
 - **Gate**: until the account reaches whole-account "Intermediate" status (section B's detection, reused rather than duplicated), `generateNextWorkout` excludes any exercise with `difficultyTier > SbeeEngine.beginnerMaxDifficultyTier` (3) from both the normal candidate pool and the recovery-fallback recompute (section E) — a fatigued beginner still only sees tier 1-3 movements, never a sudden jump to a specialty one just because everything else got filtered out.
 - **Hard Cap, Not Soft Exposure**: this is a strict exclusion, not an occasional/weighted inclusion, since the goal is to guarantee zero tier 4+ exposure until there's a real, time-gated track record behind the account (the same 12-session / 14-day Intermediate thresholds already used for the tempo-unlock gate).
 
+### G. Beginner Session-Volume Taper
+`difficultyTier` capping (section F) gates *which* exercises a new account can be handed, but nothing previously gated *how much* — `DayTypePrescription.setsCount`/`restInterval` apply identically to a first-ever session and a hundredth one. A brand-new account's first "moderate day" could run to 100+ minutes of rest alone (10 exercises x 4 sets x 150s rest) before any work time.
+
+- **Gate**: reuses the same whole-account "Intermediate" status detection section F already reuses, rather than a second "is this a beginner" signal. Until that status is achieved, `calculateExerciseSetsCount` halves the DayType's prescribed set count (rounded up, minimum 1).
+- **Reused Magnitude, Not a New One**: the halving factor is the same one `PeriodizationScheduler.applyDeload` already uses for a scheduled deload — an already-vetted reduction, not a newly-invented percentage for a similar case. If a deload week and a beginner account coincide, the two compose (quartering, still floored at 1), since both are independently valid reasons to train lighter.
+- **Scoped to Set Count Only**: rest interval stays the physiologically-appropriate window for the prescribed RPE regardless of experience (shortening it would work against recovery), and exercise-count-per-session is an emergent property of the 2:1 postural balance invariant (section D), not a single tunable value. Set count is the one lever that shortens session duration without touching either.
+
 ---
 
 ## 4. Persistence Architecture

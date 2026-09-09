@@ -113,6 +113,40 @@ class SbeeEngine {
   /// selection.
   static const int beginnerMaxDifficultyTier = 3;
 
+  /// APP-SPECIFIC DESIGN DECISION: Beginner Session Volume Taper
+  /// `beginnerMaxDifficultyTier` (above) gates *which* exercises a new
+  /// account can be handed, but nothing previously gated *how much* --
+  /// `DayTypePrescription.setsCount` (e.g. 4 sets on a moderate day) and
+  /// `restInterval` (e.g. 150s on a strength day) apply identically to a
+  /// first-ever session and a hundredth one. Combined with a session's
+  /// exercise count, a brand-new account's first "moderate day" produces
+  /// roughly 10 exercises x 4 sets x 150s rest -- upwards of 100 minutes of
+  /// rest alone before any work time -- with nothing about the prescription
+  /// aware this might be someone's very first time training at all.
+  ///
+  /// This reuses the exact same whole-account "Intermediate" status
+  /// detection `beginnerMaxDifficultyTier` already reuses (rather than
+  /// introducing a second, parallel "is this a beginner" signal): until that
+  /// status is achieved, `calculateExerciseSetsCount` halves the DayType's
+  /// prescribed set count (rounded up, minimum 1 via `.ceil()`), the exact
+  /// same halving magnitude `PeriodizationScheduler.applyDeload` already
+  /// uses elsewhere in this engine for a lighter session -- reusing an
+  /// already-vetted reduction rather than introducing a new, undocumented
+  /// percentage for a second, similar case. If a deload week and a beginner
+  /// account coincide, the two reductions compose (quartering the base
+  /// count, still floored at 1 by the same `.ceil()` mechanism), which is
+  /// intentional: both are independently valid reasons to train lighter, and
+  /// neither should suppress the other.
+  ///
+  /// Deliberately scoped to set count only, not rest interval or exercise
+  /// count per session: `restInterval` is the physiologically-appropriate
+  /// recovery window for the prescribed RPE regardless of account
+  /// experience (shortening it would work against recovery, not for it),
+  /// and exercise-count-per-session is an emergent property of movement
+  /// pattern selection and the 2:1 postural balance invariant, not a single
+  /// tunable value -- changing it would risk that invariant rather than
+  /// simply reducing volume. Set count is the one lever that directly
+  /// shortens session duration without touching either.
   SbeeEngine({
     required this.sessionRepository,
     required this.progressionRepository,
@@ -450,11 +484,19 @@ class SbeeEngine {
         .length;
 
     // Helper to calculate sets count for an exercise. Base count comes from the
-    // DayType's prescription (see DayTypePrescription.setsCount); deload and the
-    // female-wrapper minimum floor are then applied on top, unchanged from before.
+    // DayType's prescription (see DayTypePrescription.setsCount); deload, the
+    // beginner volume taper (see beginnerMaxDifficultyTier's doc comment for
+    // the shared "beginner" concept this reuses), and the female-wrapper
+    // minimum floor are then applied on top, in that order, unchanged
+    // otherwise from before. The female-wrapper floor stays last deliberately:
+    // it's a safety minimum, so it must always have final say over any
+    // reduction stacked before it, never the other way around.
     int calculateExerciseSetsCount(Exercise exercise) {
       var count = prescription.setsCount;
       if (isDeload) {
+        count = (count / 2).ceil();
+      }
+      if (!hasIntermediateStatus) {
         count = (count / 2).ceil();
       }
       if (femaleProfile != null) {

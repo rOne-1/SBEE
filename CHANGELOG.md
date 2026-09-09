@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0
+
+- **Beginner session-volume taper.** `SbeeEngine.beginnerMaxDifficultyTier` (0.5.0) already capped *which* exercises a new account could be handed, but nothing capped *how much* — `DayTypePrescription.setsCount` applied identically to a first-ever session and a hundredth one, so a brand-new account's first "moderate day" could run to 100+ minutes of rest alone (10 exercises x 4 sets x 150s rest) before any work time. `calculateExerciseSetsCount` now halves the DayType's prescribed set count (rounded up, minimum 1) for any account without whole-account "Intermediate" status — reusing the same status signal `beginnerMaxDifficultyTier` already reuses, and the same halving magnitude `PeriodizationScheduler.applyDeload` already uses elsewhere, rather than introducing a new signal or an unvetted percentage. Composes with a scheduled deload (both reductions apply) since each is an independently valid reason to train lighter. Deliberately scoped to set count only — rest interval is the physiologically-appropriate recovery window regardless of experience, and exercise-count-per-session is an emergent property of the 2:1 postural balance invariant, not a single tunable value.
+- See `doc/DECISIONS_LOG.md` for full rationale.
+
 ## 0.6.0
 
 - **Added a real way to discard an abandoned incomplete session.** `SessionRepository.getActiveIncompleteSession()`/`SbeeEngine.resumeActiveSession()` could find a session left over from a crash or a user who never came back to finish it, but nothing could ever remove one — a host app's only option was to hide its own resume prompt locally while the row stayed in the database forever. Added `SessionRepository.deleteSession(String id)` (deletes the session and its sets in one transaction) and `SbeeEngine.discardActiveSession()`, the symmetric counterpart to `resumeActiveSession()`.

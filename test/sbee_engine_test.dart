@@ -434,9 +434,50 @@ void main() {
     });
 
     test(
+        'generateNextWorkout halves setsCount for an account without Intermediate status',
+        () async {
+      final now = DateTime.now();
+      // First-ever workout has no history, so PeriodizationScheduler defaults
+      // to moderate (prescribed setsCount: 4). No Intermediate status has
+      // been granted, so the beginner volume taper should halve it to 2.
+      final workout = await engine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: now,
+        availableEquipment: {Equipment.bands},
+      );
+
+      expect(workout.dayType, equals(DayType.moderate));
+      expect(workout.sets.where((s) => s.exerciseId == 'A').length, equals(2));
+      expect(workout.sets.where((s) => s.exerciseId == 'B').length, equals(2));
+    });
+
+    test(
+        'generateNextWorkout uses the full DayType-prescribed setsCount once Intermediate status is achieved',
+        () async {
+      final now = DateTime.now();
+      await progressionRepo.saveStatusAchievedDate('Intermediate', now);
+
+      final workout = await engine.generateNextWorkout(
+        userId: 'user_1',
+        currentTime: now,
+        availableEquipment: {Equipment.bands},
+      );
+
+      expect(workout.dayType, equals(DayType.moderate));
+      // No longer a beginner, so the full moderate-day setsCount (4) applies,
+      // unhalved.
+      expect(workout.sets.where((s) => s.exerciseId == 'A').length, equals(4));
+      expect(workout.sets.where((s) => s.exerciseId == 'B').length, equals(4));
+    });
+
+    test(
         'generateNextWorkout prescribes DayType-driven reps/RPE instead of a hardcoded default',
         () async {
       final now = DateTime.now();
+      // Grant Intermediate status so this test isolates DayType-driven
+      // behavior from the beginner session-volume taper (which would
+      // otherwise halve setsCount for this fresh account).
+      await progressionRepo.saveStatusAchievedDate('Intermediate', now);
       final workout = await engine.generateNextWorkout(
         userId: 'user_1',
         currentTime: now,
@@ -461,6 +502,10 @@ void main() {
         'generateNextWorkout uses DayType-driven setsCount, not a flat default',
         () async {
       final now = DateTime.now();
+      // Grant Intermediate status so this test isolates DayType-driven
+      // behavior from the beginner session-volume taper (which would
+      // otherwise halve setsCount for this fresh account).
+      await progressionRepo.saveStatusAchievedDate('Intermediate', now);
       // Seed one completed moderate session so the DUP rotation schedules veryHeavy next.
       await sessionRepo.saveSession(WorkoutSession(
         id: 'prior_moderate_session',
@@ -487,6 +532,10 @@ void main() {
     test('generateNextWorkout uses EMOM-structured reps on highLactic days',
         () async {
       final now = DateTime.now();
+      // Grant Intermediate status so this test isolates DayType-driven
+      // behavior from the beginner session-volume taper (which would
+      // otherwise halve setsCount for this fresh account).
+      await progressionRepo.saveStatusAchievedDate('Intermediate', now);
       // Seed one completed veryLight session (recent enough to avoid the 14-day
       // detraining redirect) so the DUP rotation schedules highLactic next.
       await sessionRepo.saveSession(WorkoutSession(

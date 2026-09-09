@@ -137,6 +137,13 @@ Two behaviors were implemented only inside the `FemaleProfile`/`FemalePhysiology
 - **Scope**: no existing `FemaleProfile` behavior changed for callers who don't also pass the new flag — a female-profile user under 45 with joint pain still isn't gated by `isPlyometricsAllowed` alone, exactly as before. What changed is that the accommodation is now *reachable* without a `FemaleProfile` at all.
 - **Lesson for future wrapper methods**: check whether new logic is genuinely population-specific before writing it inside `FemalePhysiologyWrapper` — see the caution note in ARCHITECTURE.md §3.A.
 
+### `APP-SPECIFIC DESIGN DECISION`: Beginner Session-Volume Taper
+`beginnerMaxDifficultyTier` (Phase 5 above) gates *which* exercises a new account can be handed, but nothing previously gated *how much* — `DayTypePrescription.setsCount`/`restInterval` apply identically to a first-ever session and a hundredth one.
+
+- **Problem**: a brand-new account's first "moderate day" produces roughly 10 exercises x 4 sets x 150s rest — upwards of 100 minutes of rest alone before any work time — with nothing about the prescription aware this might be someone's very first time training at all. Difficulty-tier capping alone doesn't address session length or a beginner's likely first-session overwhelm.
+- **Decision**: reuse the exact same whole-account "Intermediate" status detection `beginnerMaxDifficultyTier` already reuses (rather than a second, parallel "is this a beginner" signal). Until that status is achieved, `calculateExerciseSetsCount` halves the DayType's prescribed set count (rounded up, minimum 1 via `.ceil()`) — the same halving magnitude `PeriodizationScheduler.applyDeload` already uses elsewhere in this engine, reused rather than inventing a new, undocumented percentage. Applied before the female-wrapper minimum-floor adjustment, so that floor always has final say over any reduction stacked before it. If a deload week and a beginner account coincide, the two reductions compose (quartering the base count, still floored at 1) — intentional, since both are independently valid reasons to train lighter.
+- **Scope**: deliberately limited to set count only, not rest interval or exercise count per session. `restInterval` is the physiologically-appropriate recovery window for the prescribed RPE regardless of account experience — shortening it would work against recovery, not for it. Exercise-count-per-session is an emergent property of movement-pattern selection and the 2:1 postural balance invariant, not a single tunable value; changing it would risk that invariant rather than simply reducing volume. Set count is the one lever that directly shortens session duration without touching either.
+
 ### `APP-SPECIFIC DESIGN DECISION`: Discarding an Abandoned Incomplete Session
 `SessionRepository` had a way to find an abandoned incomplete session (`getActiveIncompleteSession`, backing `resumeActiveSession`) but no way to ever remove one.
 
@@ -194,7 +201,7 @@ All 8 methods in [`FemalePhysiologyWrapper`](../lib/src/engine/female_wrapper.da
 
 ## 4.8. Versioning
 
-The current library version is `0.6.0`. All changes, database schema migrations, and feature additions are recorded in the [CHANGELOG.md](../CHANGELOG.md) in the repository root.
+The current library version is `0.7.0`. All changes, database schema migrations, and feature additions are recorded in the [CHANGELOG.md](../CHANGELOG.md) in the repository root.
 
 ---
 
