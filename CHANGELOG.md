@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.0
+
+- **Added `SessionStreamManager.awaitPendingPersistence()`.** Incremental mid-workout persistence is deliberately fire-and-forget so a transient write failure can't crash the active FSM, but that left a race: a set logged immediately before the user aborts the workout could still have its save in flight when `SbeeEngine.discardActiveSession()`'s delete ran, and if that save landed afterward it would resurrect the session the user just discarded. `SbeeEngine` can't close this itself, since it hands the manager to the host app and keeps no reference of its own. The new method returns the `Future` behind the most recently launched incremental persist so a host app can await it before calling `discardActiveSession()`. Purely additive; fire-and-forget behavior and error-swallowing are unchanged.
+- See `doc/DECISIONS_LOG.md` for full rationale.
+
 ## 0.8.0
 
 - **Added `SbeeEngine.isDeloadActive()`.** `generateNextWorkout` has always resolved whether a deload week is active internally to size its own session, but there was no host-app-facing equivalent — unlike the movement-lock and postural-balance checks, which have always been queryable via `isMovementLocked`/`validatePosturalBalance`. A host app wanting to *display* deload status (e.g. a training-phase dashboard) had no way to ask without re-implementing the same week-modulo arithmetic by hand, exactly the "duplicated implementation will drift from the real one eventually" trap those other two checks already prevent. Mirrors their shape and internals exactly: reads only the earliest completed session's start date via the existing indexed `getEarliestCompletedSessionStart()` query, no full-history scan. Purely additive — no change to `generateNextWorkout` or `PeriodizationScheduler`.

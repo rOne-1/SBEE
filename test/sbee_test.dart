@@ -1,8 +1,68 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:test/test.dart';
 import 'package:sbee/sbee.dart';
+import 'package:sbee/src/domain/repositories/session_repository.dart';
 import 'package:sbee/src/engine/autoregulation.dart';
 import 'package:sbee/src/engine/session_state_machine.dart';
+
+/// A [SessionRepository] whose [saveSession] doesn't complete until an
+/// externally-controlled gate future completes, for tests that need to
+/// observe behavior while a save is deliberately still in flight.
+class _DelayedSaveSessionRepository implements SessionRepository {
+  final Future<void> _gate;
+  int saveCount = 0;
+
+  _DelayedSaveSessionRepository(this._gate);
+
+  @override
+  Future<void> saveSession(WorkoutSession session) async {
+    saveCount++;
+    await _gate;
+  }
+
+  @override
+  Future<WorkoutSession?> getSession(String id) =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<WorkoutSession>> getSessionsInDateRange(
+          DateTime start, DateTime end) =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<WorkoutSet>> getSetsForMovementPattern(
+          MovementPattern pattern, DateTime since) =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<WorkoutSet>> getSetsInDateRange(DateTime start, DateTime end) =>
+      throw UnimplementedError();
+
+  @override
+  Future<WorkoutSession?> getMostRecentCompletedSession(
+          {bool requireDayType = false}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<DateTime?> getEarliestCompletedSessionStart() =>
+      throw UnimplementedError();
+
+  @override
+  Future<int> getCompletedSessionCount() => throw UnimplementedError();
+
+  @override
+  Future<int> getReportedSetCountForExercise(String exerciseId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<WorkoutSession?> getActiveIncompleteSession() =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteSession(String id) => throw UnimplementedError();
+}
 
 void main() {
   group('ExerciseGraph Tests', () {
@@ -280,6 +340,50 @@ void main() {
 
       manager.dispose();
       await database.close();
+    });
+
+    test(
+        'SessionStreamManager.awaitPendingPersistence waits for an in-flight incremental save',
+        () async {
+      final saveGate = Completer<void>();
+      final repo = _DelayedSaveSessionRepository(saveGate.future);
+      final manager = SessionStreamManager(sessionRepository: repo);
+
+      final session = WorkoutSession(
+        id: 'race_session',
+        startTime: DateTime.now(),
+        sets: [
+          WorkoutSet(
+            id: 'race_set_1',
+            sessionId: 'race_session',
+            exerciseId: 'ex_1',
+            movementPattern: MovementPattern.pushing,
+            setNumber: 1,
+            reps: 10,
+            targetRpe: 7,
+            variables: const MillerVariables(),
+            timestamp: DateTime.now(),
+          ),
+        ],
+      );
+
+      manager.initializeSession(session);
+
+      var awaited = false;
+      final awaitFuture =
+          manager.awaitPendingPersistence().then((_) => awaited = true);
+
+      // The save is still gated shut -- awaitPendingPersistence must not
+      // resolve until it does.
+      await Future<void>.delayed(Duration.zero);
+      expect(awaited, isFalse);
+      expect(repo.saveCount, equals(1));
+
+      saveGate.complete();
+      await awaitFuture;
+      expect(awaited, isTrue);
+
+      manager.dispose();
     });
 
     test(

@@ -87,6 +87,8 @@ Future<SessionStreamManager?> resumeActiveSession();
 
 #### `discardActiveSession`
 Permanently deletes the current incomplete session (as returned by `getActiveIncompleteSession`) via `SessionRepository.deleteSession`, for a host app offering the user a way to dismiss an abandoned session rather than resume it. Without this, `resumeActiveSession` would keep surfacing the same session as resumable indefinitely, since nothing else ever removes a session once written. A no-op if there is nothing to discard.
+
+**Host app responsibility:** if a `SessionStreamManager` for this session is still live, call `manager.awaitPendingPersistence()` before calling `discardActiveSession()`. Incremental mid-workout persistence (see `SessionStreamManager`) is fire-and-forget, so a save triggered just before the discard can otherwise still be in flight when the delete runs and land afterward, resurrecting the row the user just discarded.
 ```dart
 Future<void> discardActiveSession();
 ```
@@ -430,6 +432,7 @@ SessionStreamManager({SessionRepository? sessionRepository});
 - `void logCurrentSet({required int reps, required int reportedRpe})`: Records performance on the current set, transitioning to `rest` (or `coolDown` if it is the final set).
 - `void startNextSet()`: Transition from `rest` to `activeSet` and increments the set index.
 - `void finalizeSession()`: Finalizes the session, marking it as completed.
+- `Future<void> awaitPendingPersistence()`: Waits for the most recently triggered incremental persist (from `initializeSession` or `logCurrentSet`) to finish writing. Call this before `SbeeEngine.discardActiveSession()` if this manager is still live, to avoid a race where the discard's delete runs before a still-in-flight incremental save, which then lands afterward and resurrects the discarded session.
 - `void dispose()`: Closes the underlying stream emitter.
 
 ---

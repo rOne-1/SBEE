@@ -59,6 +59,10 @@ class SessionStreamManager {
 
   SessionStateMachine? _fsm;
 
+  /// Tracks the most recently launched incremental persist so
+  /// [awaitPendingPersistence] can let a caller wait for it to land.
+  Future<void> _pendingPersistence = Future<void>.value();
+
   SessionStreamManager({SessionRepository? sessionRepository})
       : _sessionRepository = sessionRepository;
 
@@ -70,9 +74,22 @@ class SessionStreamManager {
 
   void _persistInBackground(WorkoutSession session) {
     // Fire-and-forget: a persistence hiccup must not crash the active FSM.
-    // ignore: discarded_futures
-    _sessionRepository?.saveSession(session).catchError((_) {});
+    _pendingPersistence =
+        _sessionRepository?.saveSession(session).catchError((_) {}) ??
+            Future<void>.value();
   }
+
+  /// Waits for the most recently triggered incremental persist (from
+  /// [initializeSession] or [logCurrentSet]) to finish writing.
+  ///
+  /// [_persistInBackground] is deliberately fire-and-forget so a transient
+  /// write failure can't crash the active FSM -- but that means a caller
+  /// which needs to react to the session's on-disk state (most notably,
+  /// [SbeeEngine.discardActiveSession] deleting it) can otherwise race an
+  /// in-flight write: the delete completes, then the stale in-flight save
+  /// lands afterward and resurrects the row the caller just discarded.
+  /// Awaiting this before deleting closes that window.
+  Future<void> awaitPendingPersistence() => _pendingPersistence;
 
   /// Starts a new workout session, transitioning the FSM to [SessionState.warmUp].
   void initializeSession(WorkoutSession session) {
