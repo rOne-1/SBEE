@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.0
+
+- **Added `SbeeEngine.isDeloadActive()`.** `generateNextWorkout` has always resolved whether a deload week is active internally to size its own session, but there was no host-app-facing equivalent — unlike the movement-lock and postural-balance checks, which have always been queryable via `isMovementLocked`/`validatePosturalBalance`. A host app wanting to *display* deload status (e.g. a training-phase dashboard) had no way to ask without re-implementing the same week-modulo arithmetic by hand, exactly the "duplicated implementation will drift from the real one eventually" trap those other two checks already prevent. Mirrors their shape and internals exactly: reads only the earliest completed session's start date via the existing indexed `getEarliestCompletedSessionStart()` query, no full-history scan. Purely additive — no change to `generateNextWorkout` or `PeriodizationScheduler`.
+- See `doc/DECISIONS_LOG.md` for full rationale.
+
 ## 0.7.0
 
 - **Beginner session-volume taper.** `SbeeEngine.beginnerMaxDifficultyTier` (0.5.0) already capped *which* exercises a new account could be handed, but nothing capped *how much* — `DayTypePrescription.setsCount` applied identically to a first-ever session and a hundredth one, so a brand-new account's first "moderate day" could run to 100+ minutes of rest alone (10 exercises x 4 sets x 150s rest) before any work time. `calculateExerciseSetsCount` now halves the DayType's prescribed set count (rounded up, minimum 1) for any account without whole-account "Intermediate" status — reusing the same status signal `beginnerMaxDifficultyTier` already reuses, and the same halving this function already applies for a scheduled deload, rather than introducing a new signal or an unvetted percentage. Composes with a scheduled deload (both reductions apply) since each is an independently valid reason to train lighter. Deliberately scoped to set count only — rest interval is the physiologically-appropriate recovery window regardless of experience, and exercise-count-per-session is an emergent property of the 2:1 postural balance invariant, not a single tunable value.

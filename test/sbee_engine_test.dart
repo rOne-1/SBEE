@@ -805,5 +805,72 @@ void main() {
       await engine.discardActiveSession(); // should not throw
       expect(await sessionRepo.getActiveIncompleteSession(), isNull);
     });
+
+    group('isDeloadActive', () {
+      test('is false when there is no completed-session history yet',
+          () async {
+        expect(
+          await engine.isDeloadActive(currentTime: DateTime.now()),
+          isFalse,
+        );
+      });
+
+      test('is false during weeks 1-4 of a cycle, true on week 5', () async {
+        final programStart = DateTime(2026, 1, 1);
+        await sessionRepo.saveSession(WorkoutSession(
+          id: 'program_start_session',
+          startTime: programStart,
+          isCompleted: true,
+        ));
+
+        // Week 1 (day 0-6): not deload.
+        expect(
+          await engine.isDeloadActive(currentTime: programStart),
+          isFalse,
+        );
+        // Week 4 (day 21-27): not deload (accumulation/overload).
+        expect(
+          await engine.isDeloadActive(
+            currentTime: programStart.add(const Duration(days: 21)),
+          ),
+          isFalse,
+        );
+        // Week 5 (day 28-34): deload.
+        expect(
+          await engine.isDeloadActive(
+            currentTime: programStart.add(const Duration(days: 28)),
+          ),
+          isTrue,
+        );
+        // Week 1 of the *next* cycle (day 35-41): not deload again.
+        expect(
+          await engine.isDeloadActive(
+            currentTime: programStart.add(const Duration(days: 35)),
+          ),
+          isFalse,
+        );
+      });
+
+      test(
+          'reads only the earliest session -- a later session does not shift the program start',
+          () async {
+        final earliest = DateTime(2026, 1, 1);
+        final later = DateTime(2026, 1, 10);
+        await sessionRepo.saveSession(
+          WorkoutSession(id: 's1', startTime: later, isCompleted: true),
+        );
+        await sessionRepo.saveSession(
+          WorkoutSession(id: 's2', startTime: earliest, isCompleted: true),
+        );
+
+        // Week 5 relative to the EARLIEST session, not the later one.
+        expect(
+          await engine.isDeloadActive(
+            currentTime: earliest.add(const Duration(days: 28)),
+          ),
+          isTrue,
+        );
+      });
+    });
   });
 }

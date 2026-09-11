@@ -744,6 +744,42 @@ class SbeeEngine {
     );
   }
 
+  /// Determines if a scheduled deload week (every 5th week of the 5-week
+  /// block periodization cycle) is currently active.
+  ///
+  /// HOST-APP INTEGRATION GAP FIX: `generateNextWorkout` resolves this same
+  /// question internally (step 3, above) to size that call's own session,
+  /// but had no host-app-facing equivalent -- unlike the movement-lock and
+  /// postural-balance checks just above, which have always been queryable
+  /// via [isMovementLocked]/[validatePosturalBalance]. A host app wanting to
+  /// *display* deload status (e.g. a training-phase dashboard) had no way
+  /// to ask without re-deriving `PeriodizationScheduler.isDeloadActive`'s
+  /// week-modulo arithmetic by hand -- exactly the "don't reimplement a
+  /// safety/state check client-side" trap the other two methods already
+  /// prevent. See doc/DECISIONS_LOG.md for the host-app case that surfaced
+  /// this gap.
+  ///
+  /// Mirrors `generateNextWorkout`'s own resolution exactly: reads only the
+  /// earliest completed session's start date (the program's start date),
+  /// wrapped in a minimal single-session carrier, since
+  /// `PeriodizationScheduler.isDeloadActive` only ever reads that one date
+  /// off its `completedSessions` argument.
+  Future<bool> isDeloadActive({required DateTime currentTime}) async {
+    final programStart =
+        await sessionRepository.getEarliestCompletedSessionStart();
+    if (programStart == null) return false;
+    return PeriodizationScheduler.isDeloadActive(
+      completedSessions: [
+        WorkoutSession(
+          id: '_program_start_marker',
+          startTime: programStart,
+          isCompleted: true,
+        ),
+      ],
+      currentTime: currentTime,
+    );
+  }
+
   /// Creates and initializes a session state machine pipeline for active session tracking.
   /// The returned manager persists progress incrementally after every set is logged
   /// (see [SessionStreamManager]'s own docs), so a crash mid-workout can be recovered

@@ -63,6 +63,14 @@ Future<bool> validatePosturalBalance({
 });
 ```
 
+#### `isDeloadActive`
+Queries whether a scheduled deload week (the 5th week of the 5-week block periodization cycle) is currently active — the same check `generateNextWorkout` resolves internally to size its own session, now queryable directly for host-app display purposes (e.g. a training-phase dashboard). See `doc/DECISIONS_LOG.md` §3 ("Host-App-Facing Deload Status Query") for why this was added. Returns `false` if there is no completed-session history yet.
+```dart
+Future<bool> isDeloadActive({
+  required DateTime currentTime,
+});
+```
+
 #### `createWorkoutSession`
 Creates and initializes an active session stream state manager using the given session. The returned manager persists progress incrementally as sets are logged (see `SessionStreamManager`), so a crash mid-workout can be recovered via `resumeActiveSession`.
 ```dart
