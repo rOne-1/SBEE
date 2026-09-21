@@ -177,7 +177,8 @@ void main() {
         hasJointPain: true,
       );
       expect(workoutExcluded.sets.any((s) => s.exerciseId == 'B'), isFalse,
-          reason: 'General hasJointPain flag should exclude plyometrics with no profile involved');
+          reason:
+              'General hasJointPain flag should exclude plyometrics with no profile involved');
 
       final workoutAllowed = await engine.generateNextWorkout(
         userId: 'user_1',
@@ -204,7 +205,8 @@ void main() {
       expect(workout.sets, isNotEmpty);
       for (final set in workout.sets) {
         expect(set.restDuration, equals(prescription.restInterval),
-            reason: 'General accounts should get the DayType-driven rest interval by default');
+            reason:
+                'General accounts should get the DayType-driven rest interval by default');
       }
     });
 
@@ -250,12 +252,11 @@ void main() {
       expect(workout.recoveryReason,
           equals(RecoveryReason.allMovementPatternsLocked));
       expect(
-          workout.sets
-              .every((s) => s.targetRpe == SbeeEngine.recoveryFallbackTargetRpe),
+          workout.sets.every(
+              (s) => s.targetRpe == SbeeEngine.recoveryFallbackTargetRpe),
           isTrue,
           reason: 'Every set should be capped at the recovery-fallback RPE');
-      final exASets =
-          workout.sets.where((s) => s.exerciseId == 'A').length;
+      final exASets = workout.sets.where((s) => s.exerciseId == 'A').length;
       expect(exASets, equals(SbeeEngine.recoveryFallbackSetsCount));
       expect(workout.posturalWarningReason, equals(PosturalWarningReason.none),
           reason:
@@ -325,7 +326,8 @@ void main() {
 
       expect(workout.sets.any((s) => s.exerciseId == 'beginner_squat'), isTrue);
       expect(workout.sets.any((s) => s.exerciseId == 'pistol_squat'), isFalse,
-          reason: 'A fresh account has no Intermediate status yet, so tier 6 should stay locked out');
+          reason:
+              'A fresh account has no Intermediate status yet, so tier 6 should stay locked out');
     });
 
     test(
@@ -355,7 +357,8 @@ void main() {
         exerciseGraph: mixedGraph,
       );
 
-      await progressionRepo.saveStatusAchievedDate('Intermediate', DateTime.now());
+      await progressionRepo.saveStatusAchievedDate(
+          'Intermediate', DateTime.now());
 
       final workout = await mixedEngine.generateNextWorkout(
         userId: 'user_1',
@@ -364,7 +367,8 @@ void main() {
       );
 
       expect(workout.sets.any((s) => s.exerciseId == 'pistol_squat'), isTrue,
-          reason: 'Once Intermediate status is on record, tier 6 exercises should be eligible');
+          reason:
+              'Once Intermediate status is on record, tier 6 exercises should be eligible');
     });
 
     test(
@@ -428,7 +432,8 @@ void main() {
       // exercise just because it's technically equipment-eligible -- a
       // fatigued beginner should get a light familiar movement, never a
       // sudden jump to an advanced one just because everything else is locked.
-      expect(workout.recoveryReason, equals(RecoveryReason.allMovementPatternsLocked));
+      expect(workout.recoveryReason,
+          equals(RecoveryReason.allMovementPatternsLocked));
       expect(workout.sets.any((s) => s.exerciseId == 'beginner_squat'), isTrue);
       expect(workout.sets.any((s) => s.exerciseId == 'pistol_squat'), isFalse);
     });
@@ -807,8 +812,7 @@ void main() {
     });
 
     group('isDeloadActive', () {
-      test('is false when there is no completed-session history yet',
-          () async {
+      test('is false when there is no completed-session history yet', () async {
         expect(
           await engine.isDeloadActive(currentTime: DateTime.now()),
           isFalse,
@@ -872,5 +876,75 @@ void main() {
         );
       });
     });
+  });
+
+  group('Hold-type exercise generation', () {
+    late SbeeDatabase database;
+    late DriftSessionRepository sessionRepo;
+    late DriftProgressionRepository progressionRepo;
+    late SbeeEngine engine;
+
+    const holdExercise = Exercise(
+      id: 'hold_ex',
+      name: 'Test Side Plank',
+      movementPattern: MovementPattern.rotation,
+      difficultyTier: 1,
+      equipmentRequirements: {},
+      type: ExerciseType.hold,
+    );
+
+    const repExercise = Exercise(
+      id: 'rep_ex',
+      name: 'Test Dead Bug',
+      movementPattern: MovementPattern.rotation,
+      difficultyTier: 1,
+      equipmentRequirements: {},
+    );
+
+    setUp(() {
+      database = SbeeDatabase(NativeDatabase.memory());
+      sessionRepo = DriftSessionRepository(database);
+      progressionRepo = DriftProgressionRepository(database);
+      engine = SbeeEngine(
+        sessionRepository: sessionRepo,
+        progressionRepository: progressionRepo,
+        exerciseGraph: ExerciseGraph({
+          holdExercise: {},
+          repExercise: {},
+        }),
+      );
+    });
+
+    tearDown(() async {
+      await database.close();
+    });
+
+    test(
+      'a hold-type exercise gets holdDurationSeconds set; a rep-type exercise does not',
+      () async {
+        final workout = await engine.generateNextWorkout(
+          userId: 'hold_test_user',
+          currentTime: DateTime(2026, 9, 8, 12, 0),
+          availableEquipment: const {Equipment.bodyweight},
+        );
+
+        final holdSets =
+            workout.sets.where((s) => s.exerciseId == 'hold_ex').toList();
+        final repSets =
+            workout.sets.where((s) => s.exerciseId == 'rep_ex').toList();
+
+        expect(holdSets, isNotEmpty);
+        expect(repSets, isNotEmpty);
+
+        for (final set in holdSets) {
+          expect(set.holdDurationSeconds, isNotNull);
+          expect(set.isHold, isTrue);
+        }
+        for (final set in repSets) {
+          expect(set.holdDurationSeconds, isNull);
+          expect(set.isHold, isFalse);
+        }
+      },
+    );
   });
 }

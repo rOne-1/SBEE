@@ -142,5 +142,131 @@ void main() {
 
       await db.close();
     });
+
+    test('Upgrade path from schema version 5 to 6 adds hold_duration_seconds',
+        () async {
+      final rawDb = sqlite3.openInMemory();
+
+      // Version 5 schema: everything up to and including recovery_reason,
+      // but no hold_duration_seconds yet.
+      rawDb.execute('''
+        CREATE TABLE drift_workout_sessions (
+          id TEXT NOT NULL PRIMARY KEY,
+          start_time INTEGER NOT NULL,
+          end_time INTEGER,
+          is_completed INTEGER NOT NULL DEFAULT 0,
+          day_type INTEGER,
+          postural_warning TEXT,
+          postural_warning_reason TEXT,
+          recovery_reason TEXT
+        );
+      ''');
+
+      rawDb.execute('''
+        CREATE TABLE drift_workout_sets (
+          id TEXT NOT NULL PRIMARY KEY,
+          session_id TEXT NOT NULL REFERENCES drift_workout_sessions(id) ON DELETE CASCADE,
+          exercise_id TEXT NOT NULL,
+          movement_pattern INTEGER NOT NULL,
+          set_number INTEGER NOT NULL,
+          reps INTEGER NOT NULL,
+          min_reps INTEGER,
+          max_reps INTEGER,
+          target_rpe INTEGER NOT NULL,
+          reported_rpe INTEGER,
+          load_val INTEGER NOT NULL,
+          body_position INTEGER NOT NULL,
+          rom INTEGER NOT NULL,
+          height INTEGER NOT NULL,
+          tempo INTEGER NOT NULL,
+          timestamp INTEGER NOT NULL,
+          rest_duration_seconds INTEGER,
+          cues_json TEXT
+        );
+      ''');
+
+      rawDb.execute('''
+        CREATE TABLE drift_exercise_progressions (
+          exercise_id TEXT NOT NULL PRIMARY KEY,
+          load_val INTEGER NOT NULL,
+          body_position INTEGER NOT NULL,
+          rom INTEGER NOT NULL,
+          height INTEGER NOT NULL,
+          tempo INTEGER NOT NULL,
+          competency_level INTEGER NOT NULL,
+          last_performed INTEGER NOT NULL
+        );
+      ''');
+
+      rawDb.execute('''
+        CREATE TABLE drift_status_achieved (
+          status TEXT NOT NULL PRIMARY KEY,
+          achieved_date INTEGER NOT NULL
+        );
+      ''');
+
+      rawDb.execute('PRAGMA user_version = 5;');
+
+      var columns = rawDb.select('PRAGMA table_info(drift_workout_sets);');
+      var columnNames = columns.map((row) => row['name'] as String).toList();
+      expect(columnNames, isNot(contains('hold_duration_seconds')));
+
+      final db = SbeeDatabase(NativeDatabase.opened(rawDb));
+      await db.select(db.driftWorkoutSessions).get();
+
+      columns = rawDb.select('PRAGMA table_info(drift_workout_sets);');
+      columnNames = columns.map((row) => row['name'] as String).toList();
+      expect(columnNames, contains('hold_duration_seconds'));
+
+      // An old row from before the migration reads back with a null
+      // hold_duration_seconds rather than failing.
+      final sessionRepo = DriftSessionRepository(db);
+      final now = DateTime.now();
+      await sessionRepo.saveSession(WorkoutSession(
+        id: 'session_v5_test',
+        startTime: now,
+        sets: [
+          WorkoutSet(
+            id: 'set_v5_test',
+            sessionId: 'session_v5_test',
+            exerciseId: 'ex_rep_based',
+            movementPattern: MovementPattern.pushing,
+            setNumber: 1,
+            reps: 8,
+            targetRpe: 7,
+            variables: const MillerVariables(),
+            timestamp: now,
+          ),
+        ],
+      ));
+      final repBased = await sessionRepo.getSession('session_v5_test');
+      expect(repBased!.sets.first.holdDurationSeconds, isNull);
+      expect(repBased.sets.first.isHold, isFalse);
+
+      // A new hold-type set round-trips its duration correctly.
+      await sessionRepo.saveSession(WorkoutSession(
+        id: 'session_v6_test',
+        startTime: now,
+        sets: [
+          WorkoutSet(
+            id: 'set_v6_test',
+            sessionId: 'session_v6_test',
+            exerciseId: 'ex_hold_based',
+            movementPattern: MovementPattern.rotation,
+            setNumber: 1,
+            reps: 30,
+            targetRpe: 7,
+            variables: const MillerVariables(),
+            timestamp: now,
+            holdDurationSeconds: 30,
+          ),
+        ],
+      ));
+      final holdBased = await sessionRepo.getSession('session_v6_test');
+      expect(holdBased!.sets.first.holdDurationSeconds, equals(30));
+      expect(holdBased.sets.first.isHold, isTrue);
+
+      await db.close();
+    });
   });
 }

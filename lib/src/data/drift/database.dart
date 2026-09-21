@@ -14,7 +14,7 @@ class SbeeDatabase extends _$SbeeDatabase {
   SbeeDatabase(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -49,6 +49,12 @@ class SbeeDatabase extends _$SbeeDatabase {
             // introduced alongside the all-patterns-locked recovery fallback.
             await m.addColumn(
                 driftWorkoutSessions, driftWorkoutSessions.recoveryReason);
+          }
+          if (from < 6) {
+            // Adds the holdDurationSeconds column to DriftWorkoutSets,
+            // introduced alongside static-hold (isometric) exercise support.
+            await m.addColumn(
+                driftWorkoutSets, driftWorkoutSets.holdDurationSeconds);
           }
         },
       );

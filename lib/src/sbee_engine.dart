@@ -683,10 +683,19 @@ class SbeeEngine {
           : exercise.defaultCues;
       final cues = [...baseCues, ...dayTypeCues];
 
+      // Static-hold exercises reuse the same RM-zone-driven prescription
+      // number as a duration in seconds rather than a repetition count --
+      // deliberately not a new hold-duration formula, just the existing
+      // periodization math's output read under a different unit for
+      // exercises that are held rather than repeated.
+      final holdDurationSeconds =
+          exercise.type == ExerciseType.hold ? setReps : null;
+
       for (var setNum = 1; setNum <= setsCount; setNum++) {
         sets.add(WorkoutSet(
           id: 'set_${sessionId}_${setGlobalId++}',
           sessionId: sessionId,
+          holdDurationSeconds: holdDurationSeconds,
           exerciseId: exercise.id,
           movementPattern: exercise.movementPattern,
           setNumber: setNum,

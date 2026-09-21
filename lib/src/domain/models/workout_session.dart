@@ -21,6 +21,11 @@ class WorkoutSet {
   final Duration? restDuration;
   final List<String> cues;
 
+  /// Prescribed static-hold duration for this set, set only when the
+  /// exercise is `ExerciseType.hold` (see `Exercise.type`). Null for
+  /// rep-based sets, which continue to use [reps]/[minReps]/[maxReps].
+  final int? holdDurationSeconds;
+
   const WorkoutSet({
     required this.id,
     required this.sessionId,
@@ -36,6 +41,7 @@ class WorkoutSet {
     required this.timestamp,
     this.restDuration,
     this.cues = const [],
+    this.holdDurationSeconds,
   });
 
   bool get isHighIntensity => (reportedRpe ?? 0) >= 8;
@@ -43,6 +49,9 @@ class WorkoutSet {
   /// True if this set was generated from a min/max rep-range prescription
   /// (e.g. DayType-driven generation) rather than a single fixed [reps] value.
   bool get hasRepRange => minReps != null && maxReps != null;
+
+  /// True if this set is a static hold rather than discrete repetitions.
+  bool get isHold => holdDurationSeconds != null;
 
   WorkoutSet copyWith({
     String? id,
@@ -59,6 +68,7 @@ class WorkoutSet {
     DateTime? timestamp,
     Duration? restDuration,
     List<String>? cues,
+    int? holdDurationSeconds,
   }) {
     return WorkoutSet(
       id: id ?? this.id,
@@ -75,6 +85,7 @@ class WorkoutSet {
       timestamp: timestamp ?? this.timestamp,
       restDuration: restDuration ?? this.restDuration,
       cues: cues ?? this.cues,
+      holdDurationSeconds: holdDurationSeconds ?? this.holdDurationSeconds,
     );
   }
 }
