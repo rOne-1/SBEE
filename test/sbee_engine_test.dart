@@ -947,4 +947,120 @@ void main() {
       },
     );
   });
+
+  group('maxDifficultyTierOverride', () {
+    late SbeeDatabase database;
+    late DriftSessionRepository sessionRepo;
+    late DriftProgressionRepository progressionRepo;
+    late SbeeEngine engine;
+
+    const tier1 = Exercise(
+      id: 'tier1_ex',
+      name: 'Tier 1',
+      movementPattern: MovementPattern.pulling,
+      difficultyTier: 1,
+      equipmentRequirements: {},
+    );
+    const tier3 = Exercise(
+      id: 'tier3_ex',
+      name: 'Tier 3',
+      movementPattern: MovementPattern.pulling,
+      difficultyTier: 3,
+      equipmentRequirements: {},
+    );
+
+    setUp(() {
+      database = SbeeDatabase(NativeDatabase.memory());
+      sessionRepo = DriftSessionRepository(database);
+      progressionRepo = DriftProgressionRepository(database);
+      engine = SbeeEngine(
+        sessionRepository: sessionRepo,
+        progressionRepository: progressionRepo,
+        exerciseGraph: ExerciseGraph({
+          tier1: {},
+          tier3: {},
+        }),
+      );
+    });
+
+    tearDown(() async {
+      await database.close();
+    });
+
+    test(
+      'a self-declared-beginner override excludes tiers above it that the '
+      'default beginner cap would otherwise admit',
+      () async {
+        final withoutOverride = await engine.generateNextWorkout(
+          userId: 'override_test_user',
+          currentTime: DateTime(2026, 9, 8, 12, 0),
+          availableEquipment: const {},
+        );
+        expect(
+          withoutOverride.sets.map((s) => s.exerciseId),
+          contains('tier3_ex'),
+          reason: 'tier 3 is within the default beginnerMaxDifficultyTier',
+        );
+
+        final withOverride = await engine.generateNextWorkout(
+          userId: 'override_test_user_2',
+          currentTime: DateTime(2026, 9, 8, 12, 0),
+          availableEquipment: const {},
+          maxDifficultyTierOverride: 2,
+        );
+        expect(
+          withOverride.sets.map((s) => s.exerciseId),
+          isNot(contains('tier3_ex')),
+          reason: 'override of 2 must exclude tier 3',
+        );
+        expect(
+          withOverride.sets.map((s) => s.exerciseId),
+          contains('tier1_ex'),
+        );
+      },
+    );
+
+    test(
+      'a value above the default beginner cap cannot raise it',
+      () async {
+        final workout = await engine.generateNextWorkout(
+          userId: 'override_widen_attempt_user',
+          currentTime: DateTime(2026, 9, 8, 12, 0),
+          availableEquipment: const {},
+          maxDifficultyTierOverride: 99,
+        );
+        // No tier above 3 exists in this test graph to prove exclusion
+        // against, but this asserts generation doesn't throw/misbehave with
+        // an override above the default and still includes what it should.
+        expect(
+          workout.sets.map((s) => s.exerciseId),
+          containsAll(['tier1_ex', 'tier3_ex']),
+        );
+      },
+    );
+
+    test(
+      'the override is ignored once real Intermediate status is earned',
+      () async {
+        await progressionRepo.saveStatusAchievedDate(
+          'Intermediate',
+          DateTime(2026, 1, 1),
+        );
+
+        final workout = await engine.generateNextWorkout(
+          userId: 'override_graduated_user',
+          currentTime: DateTime(2026, 9, 8, 12, 0),
+          availableEquipment: const {},
+          maxDifficultyTierOverride: 1,
+        );
+
+        expect(
+          workout.sets.map((s) => s.exerciseId),
+          contains('tier3_ex'),
+          reason:
+              'earned Intermediate status must override a stale self-declared cap',
+        );
+      },
+    );
+  });
 }

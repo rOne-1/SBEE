@@ -319,6 +319,7 @@ class SbeeEngine {
     required Set<Equipment> availableEquipment,
     FemaleProfile? femaleProfile,
     bool hasJointPain = false,
+    int? maxDifficultyTierOverride,
   }) async {
     // 1. Fetch the program start date once; shared by the Intermediate-status check below
     // and the deload calculation in step 3 (both only ever need the earliest session's date).
@@ -393,6 +394,17 @@ class SbeeEngine {
         await progressionRepository.getStatusAchievedDate('Intermediate') !=
             null;
 
+    // A caller-supplied cap only ever narrows the pool further -- it's
+    // meant for a self-declared beginner who wants a tighter band than the
+    // default, not a way to raise the cap above beginnerMaxDifficultyTier.
+    // Once hasIntermediateStatus is true this value is never read at all
+    // (both filter sites below only apply it inside the !hasIntermediateStatus
+    // branch), so an account that earns real status automatically graduates
+    // out of a self-imposed override without needing it cleared.
+    final effectiveMaxTier = maxDifficultyTierOverride != null
+        ? min(maxDifficultyTierOverride, beginnerMaxDifficultyTier)
+        : beginnerMaxDifficultyTier;
+
     // 4. Select exercises corresponding to the scheduled training focus:
     //    - Filter out exercises whose movement patterns are locked under the 48h recovery gate.
     //    - Filter out exercises requiring equipment not present in availableEquipment.
@@ -413,7 +425,7 @@ class SbeeEngine {
 
       // Beginner tier cap
       if (!hasIntermediateStatus &&
-          exercise.difficultyTier > beginnerMaxDifficultyTier) {
+          exercise.difficultyTier > effectiveMaxTier) {
         continue;
       }
 
@@ -448,7 +460,7 @@ class SbeeEngine {
         if (!hasEquipment) continue;
 
         if (!hasIntermediateStatus &&
-            exercise.difficultyTier > beginnerMaxDifficultyTier) {
+            exercise.difficultyTier > effectiveMaxTier) {
           continue;
         }
 
