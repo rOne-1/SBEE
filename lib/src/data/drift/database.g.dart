@@ -579,6 +579,12 @@ class $DriftWorkoutSetsTable extends DriftWorkoutSets
   late final GeneratedColumn<String> cuesJson = GeneratedColumn<String>(
       'cues_json', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _holdDurationSecondsMeta =
+      const VerificationMeta('holdDurationSeconds');
+  @override
+  late final GeneratedColumn<int> holdDurationSeconds = GeneratedColumn<int>(
+      'hold_duration_seconds', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -598,7 +604,8 @@ class $DriftWorkoutSetsTable extends DriftWorkoutSets
         tempo,
         timestamp,
         restDurationSeconds,
-        cuesJson
+        cuesJson,
+        holdDurationSeconds
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -717,6 +724,12 @@ class $DriftWorkoutSetsTable extends DriftWorkoutSets
       context.handle(_cuesJsonMeta,
           cuesJson.isAcceptableOrUnknown(data['cues_json']!, _cuesJsonMeta));
     }
+    if (data.containsKey('hold_duration_seconds')) {
+      context.handle(
+          _holdDurationSecondsMeta,
+          holdDurationSeconds.isAcceptableOrUnknown(
+              data['hold_duration_seconds']!, _holdDurationSecondsMeta));
+    }
     return context;
   }
 
@@ -762,6 +775,8 @@ class $DriftWorkoutSetsTable extends DriftWorkoutSets
           DriftSqlType.int, data['${effectivePrefix}rest_duration_seconds']),
       cuesJson: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}cues_json']),
+      holdDurationSeconds: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}hold_duration_seconds']),
     );
   }
 
@@ -790,6 +805,7 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
   final DateTime timestamp;
   final int? restDurationSeconds;
   final String? cuesJson;
+  final int? holdDurationSeconds;
   const DriftWorkoutSet(
       {required this.id,
       required this.sessionId,
@@ -808,7 +824,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
       required this.tempo,
       required this.timestamp,
       this.restDurationSeconds,
-      this.cuesJson});
+      this.cuesJson,
+      this.holdDurationSeconds});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -839,6 +856,9 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
     }
     if (!nullToAbsent || cuesJson != null) {
       map['cues_json'] = Variable<String>(cuesJson);
+    }
+    if (!nullToAbsent || holdDurationSeconds != null) {
+      map['hold_duration_seconds'] = Variable<int>(holdDurationSeconds);
     }
     return map;
   }
@@ -873,6 +893,9 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
       cuesJson: cuesJson == null && nullToAbsent
           ? const Value.absent()
           : Value(cuesJson),
+      holdDurationSeconds: holdDurationSeconds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(holdDurationSeconds),
     );
   }
 
@@ -899,6 +922,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
       restDurationSeconds:
           serializer.fromJson<int?>(json['restDurationSeconds']),
       cuesJson: serializer.fromJson<String?>(json['cuesJson']),
+      holdDurationSeconds:
+          serializer.fromJson<int?>(json['holdDurationSeconds']),
     );
   }
   @override
@@ -923,6 +948,7 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
       'timestamp': serializer.toJson<DateTime>(timestamp),
       'restDurationSeconds': serializer.toJson<int?>(restDurationSeconds),
       'cuesJson': serializer.toJson<String?>(cuesJson),
+      'holdDurationSeconds': serializer.toJson<int?>(holdDurationSeconds),
     };
   }
 
@@ -944,7 +970,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
           int? tempo,
           DateTime? timestamp,
           Value<int?> restDurationSeconds = const Value.absent(),
-          Value<String?> cuesJson = const Value.absent()}) =>
+          Value<String?> cuesJson = const Value.absent(),
+          Value<int?> holdDurationSeconds = const Value.absent()}) =>
       DriftWorkoutSet(
         id: id ?? this.id,
         sessionId: sessionId ?? this.sessionId,
@@ -966,6 +993,9 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
             ? restDurationSeconds.value
             : this.restDurationSeconds,
         cuesJson: cuesJson.present ? cuesJson.value : this.cuesJson,
+        holdDurationSeconds: holdDurationSeconds.present
+            ? holdDurationSeconds.value
+            : this.holdDurationSeconds,
       );
   DriftWorkoutSet copyWithCompanion(DriftWorkoutSetsCompanion data) {
     return DriftWorkoutSet(
@@ -995,6 +1025,9 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
           ? data.restDurationSeconds.value
           : this.restDurationSeconds,
       cuesJson: data.cuesJson.present ? data.cuesJson.value : this.cuesJson,
+      holdDurationSeconds: data.holdDurationSeconds.present
+          ? data.holdDurationSeconds.value
+          : this.holdDurationSeconds,
     );
   }
 
@@ -1018,7 +1051,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
           ..write('tempo: $tempo, ')
           ..write('timestamp: $timestamp, ')
           ..write('restDurationSeconds: $restDurationSeconds, ')
-          ..write('cuesJson: $cuesJson')
+          ..write('cuesJson: $cuesJson, ')
+          ..write('holdDurationSeconds: $holdDurationSeconds')
           ..write(')'))
         .toString();
   }
@@ -1042,7 +1076,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
       tempo,
       timestamp,
       restDurationSeconds,
-      cuesJson);
+      cuesJson,
+      holdDurationSeconds);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1064,7 +1099,8 @@ class DriftWorkoutSet extends DataClass implements Insertable<DriftWorkoutSet> {
           other.tempo == this.tempo &&
           other.timestamp == this.timestamp &&
           other.restDurationSeconds == this.restDurationSeconds &&
-          other.cuesJson == this.cuesJson);
+          other.cuesJson == this.cuesJson &&
+          other.holdDurationSeconds == this.holdDurationSeconds);
 }
 
 class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
@@ -1086,6 +1122,7 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
   final Value<DateTime> timestamp;
   final Value<int?> restDurationSeconds;
   final Value<String?> cuesJson;
+  final Value<int?> holdDurationSeconds;
   final Value<int> rowid;
   const DriftWorkoutSetsCompanion({
     this.id = const Value.absent(),
@@ -1106,6 +1143,7 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
     this.timestamp = const Value.absent(),
     this.restDurationSeconds = const Value.absent(),
     this.cuesJson = const Value.absent(),
+    this.holdDurationSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DriftWorkoutSetsCompanion.insert({
@@ -1127,6 +1165,7 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
     required DateTime timestamp,
     this.restDurationSeconds = const Value.absent(),
     this.cuesJson = const Value.absent(),
+    this.holdDurationSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         sessionId = Value(sessionId),
@@ -1160,6 +1199,7 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
     Expression<DateTime>? timestamp,
     Expression<int>? restDurationSeconds,
     Expression<String>? cuesJson,
+    Expression<int>? holdDurationSeconds,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1182,6 +1222,8 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
       if (restDurationSeconds != null)
         'rest_duration_seconds': restDurationSeconds,
       if (cuesJson != null) 'cues_json': cuesJson,
+      if (holdDurationSeconds != null)
+        'hold_duration_seconds': holdDurationSeconds,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1205,6 +1247,7 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
       Value<DateTime>? timestamp,
       Value<int?>? restDurationSeconds,
       Value<String?>? cuesJson,
+      Value<int?>? holdDurationSeconds,
       Value<int>? rowid}) {
     return DriftWorkoutSetsCompanion(
       id: id ?? this.id,
@@ -1225,6 +1268,7 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
       timestamp: timestamp ?? this.timestamp,
       restDurationSeconds: restDurationSeconds ?? this.restDurationSeconds,
       cuesJson: cuesJson ?? this.cuesJson,
+      holdDurationSeconds: holdDurationSeconds ?? this.holdDurationSeconds,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1286,6 +1330,9 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
     if (cuesJson.present) {
       map['cues_json'] = Variable<String>(cuesJson.value);
     }
+    if (holdDurationSeconds.present) {
+      map['hold_duration_seconds'] = Variable<int>(holdDurationSeconds.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1313,6 +1360,7 @@ class DriftWorkoutSetsCompanion extends UpdateCompanion<DriftWorkoutSet> {
           ..write('timestamp: $timestamp, ')
           ..write('restDurationSeconds: $restDurationSeconds, ')
           ..write('cuesJson: $cuesJson, ')
+          ..write('holdDurationSeconds: $holdDurationSeconds, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2347,6 +2395,7 @@ typedef $$DriftWorkoutSetsTableCreateCompanionBuilder
   required DateTime timestamp,
   Value<int?> restDurationSeconds,
   Value<String?> cuesJson,
+  Value<int?> holdDurationSeconds,
   Value<int> rowid,
 });
 typedef $$DriftWorkoutSetsTableUpdateCompanionBuilder
@@ -2369,6 +2418,7 @@ typedef $$DriftWorkoutSetsTableUpdateCompanionBuilder
   Value<DateTime> timestamp,
   Value<int?> restDurationSeconds,
   Value<String?> cuesJson,
+  Value<int?> holdDurationSeconds,
   Value<int> rowid,
 });
 
@@ -2456,6 +2506,10 @@ class $$DriftWorkoutSetsTableFilterComposer
   ColumnFilters<String> get cuesJson => $composableBuilder(
       column: $table.cuesJson, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<int> get holdDurationSeconds => $composableBuilder(
+      column: $table.holdDurationSeconds,
+      builder: (column) => ColumnFilters(column));
+
   $$DriftWorkoutSessionsTableFilterComposer get sessionId {
     final $$DriftWorkoutSessionsTableFilterComposer composer = $composerBuilder(
         composer: this,
@@ -2540,6 +2594,10 @@ class $$DriftWorkoutSetsTableOrderingComposer
   ColumnOrderings<String> get cuesJson => $composableBuilder(
       column: $table.cuesJson, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get holdDurationSeconds => $composableBuilder(
+      column: $table.holdDurationSeconds,
+      builder: (column) => ColumnOrderings(column));
+
   $$DriftWorkoutSessionsTableOrderingComposer get sessionId {
     final $$DriftWorkoutSessionsTableOrderingComposer composer =
         $composerBuilder(
@@ -2622,6 +2680,9 @@ class $$DriftWorkoutSetsTableAnnotationComposer
   GeneratedColumn<String> get cuesJson =>
       $composableBuilder(column: $table.cuesJson, builder: (column) => column);
 
+  GeneratedColumn<int> get holdDurationSeconds => $composableBuilder(
+      column: $table.holdDurationSeconds, builder: (column) => column);
+
   $$DriftWorkoutSessionsTableAnnotationComposer get sessionId {
     final $$DriftWorkoutSessionsTableAnnotationComposer composer =
         $composerBuilder(
@@ -2686,6 +2747,7 @@ class $$DriftWorkoutSetsTableTableManager extends RootTableManager<
             Value<DateTime> timestamp = const Value.absent(),
             Value<int?> restDurationSeconds = const Value.absent(),
             Value<String?> cuesJson = const Value.absent(),
+            Value<int?> holdDurationSeconds = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               DriftWorkoutSetsCompanion(
@@ -2707,6 +2769,7 @@ class $$DriftWorkoutSetsTableTableManager extends RootTableManager<
             timestamp: timestamp,
             restDurationSeconds: restDurationSeconds,
             cuesJson: cuesJson,
+            holdDurationSeconds: holdDurationSeconds,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -2728,6 +2791,7 @@ class $$DriftWorkoutSetsTableTableManager extends RootTableManager<
             required DateTime timestamp,
             Value<int?> restDurationSeconds = const Value.absent(),
             Value<String?> cuesJson = const Value.absent(),
+            Value<int?> holdDurationSeconds = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               DriftWorkoutSetsCompanion.insert(
@@ -2749,6 +2813,7 @@ class $$DriftWorkoutSetsTableTableManager extends RootTableManager<
             timestamp: timestamp,
             restDurationSeconds: restDurationSeconds,
             cuesJson: cuesJson,
+            holdDurationSeconds: holdDurationSeconds,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

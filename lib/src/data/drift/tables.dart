@@ -45,6 +45,7 @@ class DriftWorkoutSets extends Table {
   DateTimeColumn get timestamp => dateTime()();
   IntColumn get restDurationSeconds => integer().nullable()();
   TextColumn get cuesJson => text().nullable()();
+  IntColumn get holdDurationSeconds => integer().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

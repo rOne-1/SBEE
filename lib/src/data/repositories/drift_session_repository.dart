@@ -83,6 +83,7 @@ class DriftSessionRepository implements SessionRepository {
                   timestamp: s.timestamp,
                   restDurationSeconds: s.restDuration?.inSeconds,
                   cuesJson: s.cues.isEmpty ? null : s.cues.join('||'),
+                  holdDurationSeconds: s.holdDurationSeconds,
                 ),
               );
         }
@@ -131,6 +132,7 @@ class DriftSessionRepository implements SessionRepository {
                 cues: row.cuesJson != null && row.cuesJson!.isNotEmpty
                     ? row.cuesJson!.split('||')
                     : const [],
+                holdDurationSeconds: row.holdDurationSeconds,
               ))
           .toList();
 
@@ -228,6 +230,7 @@ class DriftSessionRepository implements SessionRepository {
                 cues: row.cuesJson != null && row.cuesJson!.isNotEmpty
                     ? row.cuesJson!.split('||')
                     : const [],
+                holdDurationSeconds: row.holdDurationSeconds,
               ))
           .toList();
     } catch (e) {
@@ -270,6 +273,7 @@ class DriftSessionRepository implements SessionRepository {
                 cues: row.cuesJson != null && row.cuesJson!.isNotEmpty
                     ? row.cuesJson!.split('||')
                     : const [],
+                holdDurationSeconds: row.holdDurationSeconds,
               ))
           .toList();
     } catch (e) {
